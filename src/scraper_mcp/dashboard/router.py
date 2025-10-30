@@ -4,11 +4,9 @@ from pathlib import Path
 
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
-from starlette.templating import Jinja2Templates
 
 # Setup template directory
 TEMPLATES_DIR = Path(__file__).parent / "templates"
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 async def dashboard(request: Request) -> HTMLResponse:

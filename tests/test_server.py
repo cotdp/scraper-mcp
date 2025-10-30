@@ -8,7 +8,7 @@ import pytest
 
 from scraper_mcp.cache import clear_all_cache, clear_expired_cache, get_cache_stats
 from scraper_mcp.providers import ScrapeResult
-from scraper_mcp.server import (
+from scraper_mcp.tools.router import (
     scrape_extract_links,
     scrape_url,
     scrape_url_markdown,
@@ -33,7 +33,7 @@ class TestScrapeUrlTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url(["https://example.com"])
 
             # Should return BatchScrapeResponse
@@ -59,7 +59,7 @@ class TestScrapeUrlTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url(["https://example.com"], timeout=60)
 
             # Verify scrape was called with custom timeout and default retries
@@ -83,7 +83,7 @@ class TestScrapeUrlTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url(["https://example.com"], max_retries=5)
 
             # Verify scrape was called with custom retries
@@ -113,7 +113,7 @@ class TestScrapeUrlMarkdownTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url_markdown(["https://example.com"])
 
             # Should return BatchScrapeResponse
@@ -143,7 +143,7 @@ class TestScrapeUrlMarkdownTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url_markdown(
                 ["https://example.com"], strip_tags=["script", "style"]
             )
@@ -174,7 +174,7 @@ class TestScrapeUrlMarkdownTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url_markdown(["https://example.com"])
 
             # Should return BatchScrapeResponse
@@ -205,7 +205,7 @@ class TestScrapeUrlTextTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url_text(["https://example.com"])
 
             # Should return BatchScrapeResponse
@@ -234,7 +234,7 @@ class TestScrapeUrlTextTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url_text(["https://example.com"])
 
             # Should return BatchScrapeResponse
@@ -260,7 +260,7 @@ class TestScrapeUrlTextTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url_text(
                 ["https://example.com"], strip_tags=["script", "ul"]
             )
@@ -292,7 +292,7 @@ class TestScrapeExtractLinksTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_extract_links(["https://example.com/page"])
 
             # Should return BatchLinksResponse
@@ -316,7 +316,7 @@ class TestScrapeExtractLinksTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_extract_links(["https://example.com/page"])
 
             # Should return BatchLinksResponse
@@ -350,7 +350,7 @@ class TestScrapeExtractLinksTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_extract_links(["https://example.com/page"])
 
             # Should return BatchLinksResponse
@@ -379,7 +379,7 @@ class TestScrapeExtractLinksTool:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_extract_links(["https://example.com"])
 
             # Should return BatchLinksResponse
@@ -412,7 +412,7 @@ class TestBatchScrapeUrl:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url(urls)
 
             # Should return BatchScrapeResponse
@@ -449,7 +449,7 @@ class TestBatchScrapeUrl:
             side_effect=[mock_success, Exception("Connection failed")]
         )
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url(urls)
 
             # Should have mixed results
@@ -488,7 +488,7 @@ class TestBatchScrapeUrlMarkdown:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url_markdown(urls)
 
             # Should return BatchScrapeResponse
@@ -525,7 +525,7 @@ class TestBatchScrapeUrlText:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url_text(urls)
 
             # Should return BatchScrapeResponse
@@ -564,7 +564,7 @@ class TestBatchExtractLinks:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_extract_links(urls)
 
             # Should return BatchLinksResponse
@@ -602,7 +602,7 @@ class TestCssSelectorFiltering:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url(["https://example.com"], css_selector="meta")
 
             # Should return BatchScrapeResponse
@@ -633,7 +633,7 @@ class TestCssSelectorFiltering:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url_markdown(
                 ["https://example.com"], css_selector=".main-content"
             )
@@ -665,7 +665,7 @@ class TestCssSelectorFiltering:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url_text(
                 ["https://example.com"], css_selector="article"
             )
@@ -695,7 +695,7 @@ class TestCssSelectorFiltering:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_extract_links(
                 ["https://example.com"], css_selector="nav"
             )
@@ -726,7 +726,7 @@ class TestCssSelectorFiltering:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url(["https://example.com"], css_selector="img, video")
 
             # Should return BatchScrapeResponse
@@ -754,7 +754,7 @@ class TestCssSelectorFiltering:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             result = await scrape_url(
                 ["https://example.com"], css_selector=".nonexistent"
             )
@@ -783,7 +783,7 @@ class TestCssSelectorFiltering:
         mock_provider = Mock()
         mock_provider.scrape = AsyncMock(return_value=mock_result)
 
-        with patch("scraper_mcp.server._default_provider", mock_provider):
+        with patch("scraper_mcp.tools.service.default_provider", mock_provider):
             # First filter to article, then strip img tags
             result = await scrape_url_markdown(
                 ["https://example.com"],

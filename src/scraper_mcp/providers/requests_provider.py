@@ -166,7 +166,7 @@ class RequestsProvider(ScraperProvider):
             Dictionary with proxy URLs or None if proxies disabled/bypassed
         """
         # Import here to avoid circular dependency
-        from scraper_mcp.server import get_config
+        from scraper_mcp.admin.service import get_config
 
         proxy_enabled = get_config("proxy_enabled", False)
         if not proxy_enabled:
@@ -221,7 +221,7 @@ class RequestsProvider(ScraperProvider):
         proxies = self._get_proxies(original_url)
 
         # Get SSL verification setting from runtime config
-        from scraper_mcp.server import get_config
+        from scraper_mcp.admin.service import get_config
         verify_ssl = get_config("verify_ssl", True)
 
         if self.scrapeops_enabled:
