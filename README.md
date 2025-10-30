@@ -13,6 +13,45 @@ A Model Context Protocol (MCP) server for efficient web scraping. This server pr
 - **HTTP/SSE transports**: Supports both Streamable HTTP and SSE MCP transports
 - **Structured output**: Returns well-typed, validated data that clients can easily process
 
+### Dashboard Features
+
+Access the monitoring dashboard at `http://localhost:8000/` to monitor and manage your scraper in real-time.
+
+#### Real-Time Monitoring Dashboard
+Track server health, request statistics, retry metrics, and cache performance at a glance:
+
+![Dashboard](docs/1-dashboard.png)
+
+- **Server Status**: Health indicator, uptime, and start time
+- **Request Statistics**: Total requests, success rate, and failure count
+- **Retry Analytics**: Total retries and average per request
+- **Cache Metrics**: Entry count, size, hit rate with one-click cache clearing
+- **Recent Requests**: Last 10 requests with timestamps, status codes, and response times
+- **Recent Errors**: Last 10 failures with detailed error messages and attempt counts
+- Auto-refreshes every 9 seconds for real-time monitoring
+
+#### Interactive API Playground
+Test all scraping tools without writing code:
+
+![Playground](docs/2-playground.png)
+
+- Test all four tools: `scrape_url`, `scrape_url_markdown`, `scrape_url_text`, `scrape_extract_links`
+- Configure parameters: URL, timeout, max retries, CSS selectors
+- View formatted JSON responses with syntax highlighting
+- One-click copy to clipboard
+- See execution time for performance testing
+
+#### Runtime Configuration
+Adjust settings on-the-fly without restarting the server:
+
+![Config](docs/3-config.png)
+
+- **Performance Tuning**: Concurrency (1-50), timeout, max retries
+- **Cache Control**: Default, realtime, and static cache TTL settings
+- **Proxy Settings**: Enable/disable with HTTP/HTTPS/NO_PROXY configuration
+- **Immediate Effect**: Changes apply instantly without server restart
+- **Non-Persistent**: Settings reset on restart (use `.env` for permanent changes)
+
 ## Configuration
 
 ### Environment Setup
