@@ -64,10 +64,39 @@ class TestScrapeUrlTool:
 
             result = await scrape_url("https://example.com", timeout=60)
 
-            # Verify scrape was called with custom timeout
+            # Verify scrape was called with custom timeout and default retries
             mock_provider.scrape.assert_called_once_with(
-                "https://example.com", timeout=60
+                "https://example.com", timeout=60, max_retries=3
             )
+
+    @pytest.mark.asyncio
+    async def test_scrape_url_with_retries(self, sample_html: str) -> None:
+        """Test scraping with custom max_retries."""
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=sample_html,
+            status_code=200,
+            content_type="text/html",
+            metadata={"attempts": 2, "retries": 1},
+        )
+
+        with patch(
+            "scraper_mcp.server.get_provider"
+        ) as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_url("https://example.com", max_retries=5)
+
+            # Verify scrape was called with custom retries
+            mock_provider.scrape.assert_called_once_with(
+                "https://example.com", timeout=30, max_retries=5
+            )
+
+            # Verify metadata includes retry info
+            assert result.metadata["attempts"] == 2
+            assert result.metadata["retries"] == 1
 
 
 class TestScrapeUrlMarkdownTool:

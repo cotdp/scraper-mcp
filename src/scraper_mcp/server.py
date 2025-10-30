@@ -67,18 +67,20 @@ def get_provider(url: str) -> ScraperProvider:
 async def scrape_url(
     url: str,
     timeout: int = 30,
+    max_retries: int = 3,
 ) -> ScrapeResponse:
     """Scrape raw HTML content from a URL.
 
     Args:
         url: The URL to scrape (must be http:// or https://)
         timeout: Request timeout in seconds (default: 30)
+        max_retries: Maximum number of retry attempts on failure (default: 3)
 
     Returns:
         ScrapeResponse containing the raw HTML content and metadata
     """
     provider = get_provider(url)
-    result = await provider.scrape(url, timeout=timeout)
+    result = await provider.scrape(url, timeout=timeout, max_retries=max_retries)
 
     return ScrapeResponse(
         url=result.url,
@@ -93,6 +95,7 @@ async def scrape_url(
 async def scrape_url_markdown(
     url: str,
     timeout: int = 30,
+    max_retries: int = 3,
     strip_tags: list[str] | None = None,
 ) -> ScrapeResponse:
     """Scrape a URL and convert the content to markdown format.
@@ -100,13 +103,14 @@ async def scrape_url_markdown(
     Args:
         url: The URL to scrape (must be http:// or https://)
         timeout: Request timeout in seconds (default: 30)
+        max_retries: Maximum number of retry attempts on failure (default: 3)
         strip_tags: List of HTML tags to strip (e.g., ['script', 'style'])
 
     Returns:
         ScrapeResponse containing markdown formatted content
     """
     provider = get_provider(url)
-    result = await provider.scrape(url, timeout=timeout)
+    result = await provider.scrape(url, timeout=timeout, max_retries=max_retries)
 
     # Convert HTML to markdown
     markdown_content = html_to_markdown(result.content, strip_tags=strip_tags)
@@ -127,6 +131,7 @@ async def scrape_url_markdown(
 async def scrape_url_text(
     url: str,
     timeout: int = 30,
+    max_retries: int = 3,
     strip_tags: list[str] | None = None,
 ) -> ScrapeResponse:
     """Scrape a URL and extract plain text content.
@@ -134,13 +139,14 @@ async def scrape_url_text(
     Args:
         url: The URL to scrape (must be http:// or https://)
         timeout: Request timeout in seconds (default: 30)
+        max_retries: Maximum number of retry attempts on failure (default: 3)
         strip_tags: List of HTML tags to strip (default: script, style, meta, link, noscript)
 
     Returns:
         ScrapeResponse containing plain text content
     """
     provider = get_provider(url)
-    result = await provider.scrape(url, timeout=timeout)
+    result = await provider.scrape(url, timeout=timeout, max_retries=max_retries)
 
     # Convert HTML to text
     text_content = html_to_text(result.content, strip_tags=strip_tags)
@@ -161,18 +167,20 @@ async def scrape_url_text(
 async def scrape_extract_links(
     url: str,
     timeout: int = 30,
+    max_retries: int = 3,
 ) -> LinksResponse:
     """Scrape a URL and extract all links.
 
     Args:
         url: The URL to scrape (must be http:// or https://)
         timeout: Request timeout in seconds (default: 30)
+        max_retries: Maximum number of retry attempts on failure (default: 3)
 
     Returns:
         LinksResponse containing all extracted links with their text and titles
     """
     provider = get_provider(url)
-    result = await provider.scrape(url, timeout=timeout)
+    result = await provider.scrape(url, timeout=timeout, max_retries=max_retries)
 
     # Extract all links
     links = extract_links(result.content, base_url=result.url)

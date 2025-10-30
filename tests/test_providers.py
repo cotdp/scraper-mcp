@@ -213,3 +213,120 @@ class TestRequestsProvider:
             assert "headers" in result.metadata
             assert result.metadata["headers"]["Server"] == "nginx/1.18.0"
             assert result.metadata["headers"]["X-Custom-Header"] == "test-value"
+
+    @pytest.mark.asyncio
+    async def test_retry_on_timeout(
+        self, provider: RequestsProvider, sample_html: str
+    ) -> None:
+        """Test that provider retries on timeout."""
+        mock_response = Mock()
+        mock_response.url = "https://example.com"
+        mock_response.text = sample_html
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/html"}
+        mock_response.encoding = "utf-8"
+        mock_response.elapsed.total_seconds.return_value = 0.1
+
+        # First two calls timeout, third succeeds
+        with patch(
+            "requests.get",
+            side_effect=[
+                requests.Timeout("Timeout 1"),
+                requests.Timeout("Timeout 2"),
+                mock_response,
+            ],
+        ):
+            result = await provider.scrape("https://example.com", max_retries=3)
+
+            # Should succeed after retries
+            assert result.status_code == 200
+            assert result.metadata["attempts"] == 3
+            assert result.metadata["retries"] == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_exhausted(self, provider: RequestsProvider) -> None:
+        """Test that provider raises after exhausting retries."""
+        with patch(
+            "requests.get",
+            side_effect=requests.Timeout("Always timeout"),
+        ):
+            with pytest.raises(requests.Timeout):
+                await provider.scrape("https://example.com", max_retries=2)
+
+    @pytest.mark.asyncio
+    async def test_retry_on_connection_error(
+        self, provider: RequestsProvider, sample_html: str
+    ) -> None:
+        """Test retry on connection errors."""
+        mock_response = Mock()
+        mock_response.url = "https://example.com"
+        mock_response.text = sample_html
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/html"}
+        mock_response.encoding = "utf-8"
+        mock_response.elapsed.total_seconds.return_value = 0.1
+
+        # First call fails, second succeeds
+        with patch(
+            "requests.get",
+            side_effect=[
+                requests.ConnectionError("Connection failed"),
+                mock_response,
+            ],
+        ):
+            result = await provider.scrape("https://example.com")
+
+            assert result.status_code == 200
+            assert result.metadata["attempts"] == 2
+            assert result.metadata["retries"] == 1
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_success(
+        self, provider: RequestsProvider, sample_html: str
+    ) -> None:
+        """Test that no retries occur on immediate success."""
+        mock_response = Mock()
+        mock_response.url = "https://example.com"
+        mock_response.text = sample_html
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/html"}
+        mock_response.encoding = "utf-8"
+        mock_response.elapsed.total_seconds.return_value = 0.1
+
+        with patch("requests.get", return_value=mock_response) as mock_get:
+            result = await provider.scrape("https://example.com")
+
+            # Should only call once
+            mock_get.assert_called_once()
+            assert result.metadata["attempts"] == 1
+            assert result.metadata["retries"] == 0
+
+    @pytest.mark.asyncio
+    async def test_custom_max_retries(
+        self, provider: RequestsProvider, sample_html: str
+    ) -> None:
+        """Test custom max_retries parameter."""
+        mock_response = Mock()
+        mock_response.url = "https://example.com"
+        mock_response.text = sample_html
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/html"}
+        mock_response.encoding = "utf-8"
+        mock_response.elapsed.total_seconds.return_value = 0.1
+
+        # Fail 4 times, succeed on 5th
+        with patch(
+            "requests.get",
+            side_effect=[
+                requests.Timeout("Fail 1"),
+                requests.Timeout("Fail 2"),
+                requests.Timeout("Fail 3"),
+                requests.Timeout("Fail 4"),
+                mock_response,
+            ],
+        ):
+            result = await provider.scrape("https://example.com", max_retries=5)
+
+            assert result.status_code == 200
+            assert result.metadata["attempts"] == 5
+            assert result.metadata["retries"] == 4

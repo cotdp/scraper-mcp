@@ -35,13 +35,19 @@ Scrape raw HTML content from a URL.
 **Parameters:**
 - `url` (string, required): The URL to scrape (http:// or https://)
 - `timeout` (integer, optional): Request timeout in seconds (default: 30)
+- `max_retries` (integer, optional): Maximum retry attempts on failure (default: 3)
 
 **Returns:**
 - `url`: Final URL after redirects
 - `content`: Raw HTML content
 - `status_code`: HTTP status code
 - `content_type`: Content-Type header value
-- `metadata`: Additional metadata (headers, encoding, elapsed time)
+- `metadata`: Additional metadata including:
+  - `headers`: Response headers
+  - `encoding`: Content encoding
+  - `elapsed_ms`: Request duration in milliseconds
+  - `attempts`: Total number of attempts made
+  - `retries`: Number of retries performed
 
 ### 2. `scrape_url_markdown`
 Scrape a URL and convert the content to markdown format.
@@ -49,11 +55,14 @@ Scrape a URL and convert the content to markdown format.
 **Parameters:**
 - `url` (string, required): The URL to scrape
 - `timeout` (integer, optional): Request timeout in seconds (default: 30)
+- `max_retries` (integer, optional): Maximum retry attempts on failure (default: 3)
 - `strip_tags` (array, optional): List of HTML tags to strip (e.g., ['script', 'style'])
 
 **Returns:**
 - Same as `scrape_url` but with markdown-formatted content
 - `metadata.page_metadata`: Extracted page metadata (title, description, etc.)
+- `metadata.attempts`: Total number of attempts made
+- `metadata.retries`: Number of retries performed
 
 ### 3. `scrape_url_text`
 Scrape a URL and extract plain text content.
@@ -61,11 +70,14 @@ Scrape a URL and extract plain text content.
 **Parameters:**
 - `url` (string, required): The URL to scrape
 - `timeout` (integer, optional): Request timeout in seconds (default: 30)
+- `max_retries` (integer, optional): Maximum retry attempts on failure (default: 3)
 - `strip_tags` (array, optional): HTML tags to strip (default: script, style, meta, link, noscript)
 
 **Returns:**
 - Same as `scrape_url` but with plain text content
 - `metadata.page_metadata`: Extracted page metadata
+- `metadata.attempts`: Total number of attempts made
+- `metadata.retries`: Number of retries performed
 
 ### 4. `scrape_extract_links`
 Scrape a URL and extract all links.
@@ -73,6 +85,7 @@ Scrape a URL and extract all links.
 **Parameters:**
 - `url` (string, required): The URL to scrape
 - `timeout` (integer, optional): Request timeout in seconds (default: 30)
+- `max_retries` (integer, optional): Maximum retry attempts on failure (default: 3)
 
 **Returns:**
 - `url`: The URL that was scraped
@@ -193,6 +206,57 @@ The server uses a provider architecture to support multiple scraping backends:
 - **Future providers**: Can add support for Playwright, Selenium, Scrapy, etc.
 
 The provider selection is automatic based on URL patterns, making it easy to add specialized providers for different types of websites.
+
+## Retry Behavior & Error Handling
+
+The scraper includes intelligent retry logic with exponential backoff to handle transient failures:
+
+### Retry Configuration
+
+- **Default max_retries**: 3 attempts
+- **Default timeout**: 30 seconds
+- **Retry delay**: Exponential backoff starting at 1 second
+
+### Retry Schedule
+
+For the default configuration (max_retries=3):
+1. **First attempt**: Immediate
+2. **Retry 1**: Wait 1 second
+3. **Retry 2**: Wait 2 seconds
+4. **Retry 3**: Wait 4 seconds
+
+Total maximum wait time: ~7 seconds before final failure
+
+### What Triggers Retries
+
+The scraper automatically retries on:
+- **Network timeouts** (`requests.Timeout`)
+- **Connection failures** (`requests.ConnectionError`)
+- **HTTP errors** (4xx, 5xx status codes)
+
+### Retry Metadata
+
+All successful responses include retry information in metadata:
+```json
+{
+  "attempts": 2,      // Total attempts made (1 = no retries)
+  "retries": 1,       // Number of retries performed
+  "elapsed_ms": 234.5 // Total request time in milliseconds
+}
+```
+
+### Customizing Retry Behavior
+
+```python
+# Disable retries
+result = await scrape_url("https://example.com", max_retries=0)
+
+# More aggressive retries for flaky sites
+result = await scrape_url("https://example.com", max_retries=5, timeout=60)
+
+# Quick fail for time-sensitive operations
+result = await scrape_url("https://example.com", max_retries=1, timeout=10)
+```
 
 ## Environment Variables
 
