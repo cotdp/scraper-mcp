@@ -4,6 +4,16 @@ from __future__ import annotations
 
 import pytest
 
+from scraper_mcp.cache import clear_all_cache
+
+
+@pytest.fixture(autouse=True)
+def clear_cache_between_tests():
+    """Clear cache before each test to prevent interference."""
+    clear_all_cache()
+    yield
+    clear_all_cache()
+
 
 @pytest.fixture
 def sample_html() -> str:
