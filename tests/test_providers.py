@@ -1,0 +1,215 @@
+"""Tests for scraper providers."""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+import requests
+
+from scraper_mcp.providers import RequestsProvider, ScrapeResult
+
+
+class TestRequestsProvider:
+    """Tests for RequestsProvider."""
+
+    @pytest.fixture
+    def provider(self) -> RequestsProvider:
+        """Create a RequestsProvider instance."""
+        return RequestsProvider(timeout=10)
+
+    def test_supports_http_urls(self, provider: RequestsProvider) -> None:
+        """Test that provider supports HTTP URLs."""
+        assert provider.supports_url("http://example.com")
+        assert provider.supports_url("https://example.com")
+        assert provider.supports_url("https://example.com/path?query=1")
+
+    def test_rejects_non_http_urls(self, provider: RequestsProvider) -> None:
+        """Test that provider rejects non-HTTP URLs."""
+        assert not provider.supports_url("ftp://example.com")
+        assert not provider.supports_url("file:///path/to/file")
+        assert not provider.supports_url("javascript:alert('test')")
+        assert not provider.supports_url("data:text/html,<h1>Test</h1>")
+
+    def test_rejects_invalid_urls(self, provider: RequestsProvider) -> None:
+        """Test that provider rejects invalid URLs."""
+        assert not provider.supports_url("not a url")
+        assert not provider.supports_url("")
+        assert not provider.supports_url("://invalid")
+
+    @pytest.mark.asyncio
+    async def test_scrape_success(
+        self, provider: RequestsProvider, sample_html: str
+    ) -> None:
+        """Test successful scraping."""
+        # Mock the requests.get call
+        mock_response = Mock()
+        mock_response.url = "https://example.com"
+        mock_response.text = sample_html
+        mock_response.status_code = 200
+        mock_response.headers = {
+            "Content-Type": "text/html; charset=utf-8",
+            "Server": "nginx",
+        }
+        mock_response.encoding = "utf-8"
+        mock_response.elapsed.total_seconds.return_value = 0.123
+
+        with patch("requests.get", return_value=mock_response) as mock_get:
+            result = await provider.scrape("https://example.com")
+
+            # Verify requests.get was called correctly
+            mock_get.assert_called_once()
+            call_args = mock_get.call_args
+            assert call_args[0][0] == "https://example.com"
+            assert call_args[1]["timeout"] == 10
+            assert "User-Agent" in call_args[1]["headers"]
+
+            # Verify result
+            assert isinstance(result, ScrapeResult)
+            assert result.url == "https://example.com"
+            assert result.content == sample_html
+            assert result.status_code == 200
+            assert result.content_type == "text/html; charset=utf-8"
+            assert result.metadata["encoding"] == "utf-8"
+            assert "elapsed_ms" in result.metadata
+
+    @pytest.mark.asyncio
+    async def test_scrape_with_custom_timeout(
+        self, provider: RequestsProvider, sample_html: str
+    ) -> None:
+        """Test scraping with custom timeout."""
+        mock_response = Mock()
+        mock_response.url = "https://example.com"
+        mock_response.text = sample_html
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/html"}
+        mock_response.encoding = "utf-8"
+        mock_response.elapsed.total_seconds.return_value = 0.5
+
+        with patch("requests.get", return_value=mock_response) as mock_get:
+            result = await provider.scrape("https://example.com", timeout=30)
+
+            # Verify custom timeout was used
+            call_args = mock_get.call_args
+            assert call_args[1]["timeout"] == 30
+
+    @pytest.mark.asyncio
+    async def test_scrape_with_custom_headers(
+        self, provider: RequestsProvider, sample_html: str
+    ) -> None:
+        """Test scraping with custom headers."""
+        mock_response = Mock()
+        mock_response.url = "https://example.com"
+        mock_response.text = sample_html
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/html"}
+        mock_response.encoding = "utf-8"
+        mock_response.elapsed.total_seconds.return_value = 0.1
+
+        custom_headers = {
+            "User-Agent": "CustomBot/1.0",
+            "Accept-Language": "en-US",
+        }
+
+        with patch("requests.get", return_value=mock_response) as mock_get:
+            result = await provider.scrape(
+                "https://example.com", headers=custom_headers
+            )
+
+            # Verify custom headers were used
+            call_args = mock_get.call_args
+            assert call_args[1]["headers"]["User-Agent"] == "CustomBot/1.0"
+            assert call_args[1]["headers"]["Accept-Language"] == "en-US"
+
+    @pytest.mark.asyncio
+    async def test_scrape_http_error(self, provider: RequestsProvider) -> None:
+        """Test scraping with HTTP error."""
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
+
+        with patch("requests.get", return_value=mock_response):
+            with pytest.raises(requests.HTTPError):
+                await provider.scrape("https://example.com/not-found")
+
+    @pytest.mark.asyncio
+    async def test_scrape_connection_error(self, provider: RequestsProvider) -> None:
+        """Test scraping with connection error."""
+        with patch(
+            "requests.get",
+            side_effect=requests.ConnectionError("Connection failed"),
+        ):
+            with pytest.raises(requests.ConnectionError):
+                await provider.scrape("https://unreachable.example.com")
+
+    @pytest.mark.asyncio
+    async def test_scrape_timeout_error(self, provider: RequestsProvider) -> None:
+        """Test scraping with timeout error."""
+        with patch("requests.get", side_effect=requests.Timeout("Request timed out")):
+            with pytest.raises(requests.Timeout):
+                await provider.scrape("https://slow.example.com")
+
+    @pytest.mark.asyncio
+    async def test_scrape_redirect_followed(
+        self, provider: RequestsProvider, sample_html: str
+    ) -> None:
+        """Test that redirects are followed and final URL is returned."""
+        mock_response = Mock()
+        mock_response.url = "https://example.com/final"  # Final URL after redirect
+        mock_response.text = sample_html
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/html"}
+        mock_response.encoding = "utf-8"
+        mock_response.elapsed.total_seconds.return_value = 0.2
+
+        with patch("requests.get", return_value=mock_response):
+            result = await provider.scrape("https://example.com/redirect")
+
+            # Should return the final URL after redirect
+            assert result.url == "https://example.com/final"
+
+    @pytest.mark.asyncio
+    async def test_default_user_agent(
+        self, provider: RequestsProvider, sample_html: str
+    ) -> None:
+        """Test that default user agent is used."""
+        mock_response = Mock()
+        mock_response.url = "https://example.com"
+        mock_response.text = sample_html
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "text/html"}
+        mock_response.encoding = "utf-8"
+        mock_response.elapsed.total_seconds.return_value = 0.1
+
+        with patch("requests.get", return_value=mock_response) as mock_get:
+            await provider.scrape("https://example.com")
+
+            # Verify default user agent was used
+            call_args = mock_get.call_args
+            user_agent = call_args[1]["headers"]["User-Agent"]
+            assert "ScraperMCP" in user_agent
+
+    @pytest.mark.asyncio
+    async def test_metadata_includes_headers(
+        self, provider: RequestsProvider, sample_html: str
+    ) -> None:
+        """Test that metadata includes response headers."""
+        mock_response = Mock()
+        mock_response.url = "https://example.com"
+        mock_response.text = sample_html
+        mock_response.status_code = 200
+        mock_response.headers = {
+            "Content-Type": "text/html; charset=utf-8",
+            "Server": "nginx/1.18.0",
+            "X-Custom-Header": "test-value",
+        }
+        mock_response.encoding = "utf-8"
+        mock_response.elapsed.total_seconds.return_value = 0.15
+
+        with patch("requests.get", return_value=mock_response):
+            result = await provider.scrape("https://example.com")
+
+            # Verify headers are in metadata
+            assert "headers" in result.metadata
+            assert result.metadata["headers"]["Server"] == "nginx/1.18.0"
+            assert result.metadata["headers"]["X-Custom-Header"] == "test-value"
