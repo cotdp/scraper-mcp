@@ -132,6 +132,7 @@ async def scrape_single_url_safe(
     timeout: int = 30,
     max_retries: int = 3,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> ScrapeResultItem:
     """Safely scrape a single URL with error handling.
 
@@ -142,6 +143,7 @@ async def scrape_single_url_safe(
         timeout: Request timeout in seconds
         max_retries: Maximum retry attempts
         css_selector: Optional CSS selector to filter HTML elements
+        include_headers: Include HTTP response headers in metadata
 
     Returns:
         ScrapeResultItem with success/error status
@@ -161,6 +163,10 @@ async def scrape_single_url_safe(
             if css_selector:
                 metadata["css_selector_applied"] = css_selector
                 metadata["elements_matched"] = elements_matched
+
+            # Remove headers if not requested
+            if not include_headers:
+                metadata.pop("headers", None)
 
             # Record successful request metrics
             record_request(
@@ -206,6 +212,7 @@ async def batch_scrape_urls(
     max_retries: int = 3,
     concurrency: int = DEFAULT_CONCURRENCY,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> BatchScrapeResponse:
     """Scrape multiple URLs concurrently.
 
@@ -215,6 +222,7 @@ async def batch_scrape_urls(
         max_retries: Maximum retry attempts per URL
         concurrency: Maximum number of concurrent requests
         css_selector: Optional CSS selector to filter HTML elements
+        include_headers: Include HTTP response headers in metadata
 
     Returns:
         BatchScrapeResponse with results for all URLs
@@ -224,7 +232,7 @@ async def batch_scrape_urls(
 
     # Create tasks for all URLs
     tasks = [
-        scrape_single_url_safe(url, provider, semaphore, timeout, max_retries, css_selector)
+        scrape_single_url_safe(url, provider, semaphore, timeout, max_retries, css_selector, include_headers)
         for url in urls
     ]
 
@@ -251,6 +259,7 @@ async def scrape_single_url_markdown_safe(
     max_retries: int = 3,
     strip_tags: list[str] | None = None,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> ScrapeResultItem:
     """Safely scrape a single URL and convert to markdown with error handling.
 
@@ -262,6 +271,7 @@ async def scrape_single_url_markdown_safe(
         max_retries: Maximum retry attempts
         strip_tags: List of HTML tags to strip
         css_selector: Optional CSS selector to filter HTML elements
+        include_headers: Include HTTP response headers in metadata
 
     Returns:
         ScrapeResultItem with success/error status
@@ -285,6 +295,10 @@ async def scrape_single_url_markdown_safe(
             if css_selector:
                 metadata["css_selector_applied"] = css_selector
                 metadata["elements_matched"] = elements_matched
+
+            # Remove headers if not requested
+            if not include_headers:
+                metadata.pop("headers", None)
 
             # Record successful request metrics
             record_request(
@@ -331,6 +345,7 @@ async def batch_scrape_urls_markdown(
     strip_tags: list[str] | None = None,
     concurrency: int = DEFAULT_CONCURRENCY,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> BatchScrapeResponse:
     """Scrape multiple URLs concurrently and convert to markdown.
 
@@ -341,6 +356,7 @@ async def batch_scrape_urls_markdown(
         strip_tags: List of HTML tags to strip
         concurrency: Maximum number of concurrent requests
         css_selector: Optional CSS selector to filter HTML elements
+        include_headers: Include HTTP response headers in metadata
 
     Returns:
         BatchScrapeResponse with markdown results for all URLs
@@ -350,7 +366,7 @@ async def batch_scrape_urls_markdown(
 
     tasks = [
         scrape_single_url_markdown_safe(
-            url, provider, semaphore, timeout, max_retries, strip_tags, css_selector
+            url, provider, semaphore, timeout, max_retries, strip_tags, css_selector, include_headers
         )
         for url in urls
     ]
@@ -376,6 +392,7 @@ async def scrape_single_url_text_safe(
     max_retries: int = 3,
     strip_tags: list[str] | None = None,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> ScrapeResultItem:
     """Safely scrape a single URL and extract text with error handling.
 
@@ -387,6 +404,7 @@ async def scrape_single_url_text_safe(
         max_retries: Maximum retry attempts
         strip_tags: List of HTML tags to strip
         css_selector: Optional CSS selector to filter HTML elements
+        include_headers: Include HTTP response headers in metadata
 
     Returns:
         ScrapeResultItem with success/error status
@@ -410,6 +428,10 @@ async def scrape_single_url_text_safe(
             if css_selector:
                 metadata["css_selector_applied"] = css_selector
                 metadata["elements_matched"] = elements_matched
+
+            # Remove headers if not requested
+            if not include_headers:
+                metadata.pop("headers", None)
 
             # Record successful request metrics
             record_request(
@@ -456,6 +478,7 @@ async def batch_scrape_urls_text(
     strip_tags: list[str] | None = None,
     concurrency: int = DEFAULT_CONCURRENCY,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> BatchScrapeResponse:
     """Scrape multiple URLs concurrently and extract text.
 
@@ -466,6 +489,7 @@ async def batch_scrape_urls_text(
         strip_tags: List of HTML tags to strip
         concurrency: Maximum number of concurrent requests
         css_selector: Optional CSS selector to filter HTML elements
+        include_headers: Include HTTP response headers in metadata
 
     Returns:
         BatchScrapeResponse with text results for all URLs
@@ -475,7 +499,7 @@ async def batch_scrape_urls_text(
 
     tasks = [
         scrape_single_url_text_safe(
-            url, provider, semaphore, timeout, max_retries, strip_tags, css_selector
+            url, provider, semaphore, timeout, max_retries, strip_tags, css_selector, include_headers
         )
         for url in urls
     ]
@@ -500,6 +524,7 @@ async def extract_links_single_safe(
     timeout: int = 30,
     max_retries: int = 3,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> LinkResultItem:
     """Safely extract links from a single URL with error handling.
 
@@ -510,6 +535,7 @@ async def extract_links_single_safe(
         timeout: Request timeout in seconds
         max_retries: Maximum retry attempts
         css_selector: Optional CSS selector to filter HTML before extracting links
+        include_headers: Include HTTP response headers in metadata (not used for links)
 
     Returns:
         LinkResultItem with success/error status
@@ -568,6 +594,7 @@ async def batch_extract_links(
     max_retries: int = 3,
     concurrency: int = DEFAULT_CONCURRENCY,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> BatchLinksResponse:
     """Extract links from multiple URLs concurrently.
 
@@ -577,6 +604,7 @@ async def batch_extract_links(
         max_retries: Maximum retry attempts per URL
         concurrency: Maximum number of concurrent requests
         css_selector: Optional CSS selector to filter HTML before extracting links
+        include_headers: Include HTTP response headers in metadata (not used for links)
 
     Returns:
         BatchLinksResponse with link extraction results for all URLs
@@ -585,7 +613,7 @@ async def batch_extract_links(
     provider = _default_provider
 
     tasks = [
-        extract_links_single_safe(url, provider, semaphore, timeout, max_retries, css_selector)
+        extract_links_single_safe(url, provider, semaphore, timeout, max_retries, css_selector, include_headers)
         for url in urls
     ]
 
@@ -608,6 +636,7 @@ async def scrape_url(
     timeout: int = 30,
     max_retries: int = 3,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> BatchScrapeResponse:
     """Scrape raw HTML content from one or more URLs.
 
@@ -617,11 +646,12 @@ async def scrape_url(
         max_retries: Maximum number of retry attempts on failure (default: 3)
         css_selector: Optional CSS selector to filter HTML elements
                      (e.g., "meta", "img, video", ".article-content")
+        include_headers: Include HTTP response headers in metadata (default: False)
 
     Returns:
         BatchScrapeResponse with results for all URLs
     """
-    return await batch_scrape_urls(urls, timeout, max_retries, DEFAULT_CONCURRENCY, css_selector)
+    return await batch_scrape_urls(urls, timeout, max_retries, DEFAULT_CONCURRENCY, css_selector, include_headers)
 
 
 @mcp.tool()
@@ -631,6 +661,7 @@ async def scrape_url_markdown(
     max_retries: int = 3,
     strip_tags: list[str] | None = None,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> BatchScrapeResponse:
     """Scrape one or more URLs and convert the content to markdown format.
 
@@ -641,12 +672,13 @@ async def scrape_url_markdown(
         strip_tags: List of HTML tags to strip (e.g., ['script', 'style'])
         css_selector: Optional CSS selector to filter HTML elements before conversion
                      (e.g., ".article-content", "article p")
+        include_headers: Include HTTP response headers in metadata (default: False)
 
     Returns:
         BatchScrapeResponse with markdown results for all URLs
     """
     return await batch_scrape_urls_markdown(
-        urls, timeout, max_retries, strip_tags, DEFAULT_CONCURRENCY, css_selector
+        urls, timeout, max_retries, strip_tags, DEFAULT_CONCURRENCY, css_selector, include_headers
     )
 
 
@@ -657,6 +689,7 @@ async def scrape_url_text(
     max_retries: int = 3,
     strip_tags: list[str] | None = None,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> BatchScrapeResponse:
     """Scrape one or more URLs and extract plain text content.
 
@@ -667,12 +700,13 @@ async def scrape_url_text(
         strip_tags: List of HTML tags to strip (default: script, style, meta, link, noscript)
         css_selector: Optional CSS selector to filter HTML elements before text extraction
                      (e.g., "#main-content", "article.post")
+        include_headers: Include HTTP response headers in metadata (default: False)
 
     Returns:
         BatchScrapeResponse with text results for all URLs
     """
     return await batch_scrape_urls_text(
-        urls, timeout, max_retries, strip_tags, DEFAULT_CONCURRENCY, css_selector
+        urls, timeout, max_retries, strip_tags, DEFAULT_CONCURRENCY, css_selector, include_headers
     )
 
 
@@ -682,6 +716,7 @@ async def scrape_extract_links(
     timeout: int = 30,
     max_retries: int = 3,
     css_selector: str | None = None,
+    include_headers: bool = False,
 ) -> BatchLinksResponse:
     """Scrape one or more URLs and extract all links.
 
@@ -691,11 +726,12 @@ async def scrape_extract_links(
         max_retries: Maximum number of retry attempts on failure (default: 3)
         css_selector: Optional CSS selector to scope link extraction to specific sections
                      (e.g., "nav", "article.main-content")
+        include_headers: Include HTTP response headers in metadata (default: False, not used for links)
 
     Returns:
         BatchLinksResponse with link extraction results for all URLs
     """
-    return await batch_extract_links(urls, timeout, max_retries, DEFAULT_CONCURRENCY, css_selector)
+    return await batch_extract_links(urls, timeout, max_retries, DEFAULT_CONCURRENCY, css_selector, include_headers)
 
 
 # Cache management tools (optional - controlled by ENABLE_CACHE_TOOLS environment variable)
@@ -953,15 +989,27 @@ async def dashboard(request: Request) -> HTMLResponse:
             font-weight: 500;
             color: #737373;
             text-align: left;
-            padding: 0.5rem 0.75rem;
+            padding: 0.5rem 0.5rem;
             border-bottom: 1px solid #e5e5e5;
             text-transform: uppercase;
             font-size: 0.625rem;
             letter-spacing: 0.05em;
             white-space: nowrap;
         }
+        .request-table th:first-child {
+            width: 90px;
+        }
+        .request-table th:nth-child(2) {
+            width: 60px;
+        }
+        .request-table th:nth-child(3) {
+            width: 80px;
+        }
+        .request-table th:nth-child(4) {
+            width: auto;
+        }
         .request-table td {
-            padding: 0.5rem 0.75rem;
+            padding: 0.5rem 0.5rem;
             border-bottom: 1px solid #f5f5f5;
             color: #1a1a1a;
         }
@@ -972,11 +1020,13 @@ async def dashboard(request: Request) -> HTMLResponse:
             color: #737373;
             white-space: nowrap;
             font-variant-numeric: tabular-nums;
+            width: 90px;
         }
         .request-table .status-col {
             white-space: nowrap;
             font-weight: 500;
         }
+            width: 60px;
         .request-table .status-success {
             color: #22c55e;
         }
@@ -989,6 +1039,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             font-variant-numeric: tabular-nums;
             color: #737373;
         }
+            width: 80px;
         .request-table .url-col {
             max-width: 400px;
             overflow: hidden;
@@ -1020,7 +1071,7 @@ async def dashboard(request: Request) -> HTMLResponse:
         }
         .btn {
             display: inline-block;
-            padding: 0.5rem 0.75rem;
+            padding: 0.5rem 0.5rem;
             font-size: 0.75rem;
             font-weight: 500;
             text-transform: uppercase;
