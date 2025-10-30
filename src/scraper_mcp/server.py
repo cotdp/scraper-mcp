@@ -26,7 +26,9 @@ from scraper_mcp.utils import (
 # Set ENABLE_CACHE_TOOLS=true to expose cache_stats, cache_clear_expired, and cache_clear_all
 ENABLE_CACHE_TOOLS = os.getenv("ENABLE_CACHE_TOOLS", "false").lower() in ("true", "1", "yes")
 
-# Create MCP server
+# Create MCP server with stateless mode enabled
+# Stateless mode auto-creates sessions for unknown session IDs, making the server
+# resilient to restarts and eliminating "No valid session ID" errors
 mcp = FastMCP(
     "Scraper MCP",
     instructions=(
@@ -34,6 +36,7 @@ mcp = FastMCP(
         "Supports scraping HTML content, converting to markdown, extracting text, "
         "and extracting links from webpages."
     ),
+    stateless_http=True,  # Accept requests without requiring initialize handshake
 )
 
 
