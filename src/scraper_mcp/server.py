@@ -789,152 +789,195 @@ async def dashboard(request: Request) -> HTMLResponse:
             box-sizing: border-box;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #fafafa;
             min-height: 100vh;
-            padding: 2rem;
+            padding: 3rem 2rem;
+            color: #1a1a1a;
         }
         .container {
             max-width: 1400px;
             margin: 0 auto;
         }
         header {
-            text-align: center;
-            color: white;
-            margin-bottom: 2rem;
+            margin-bottom: 3rem;
         }
         h1 {
-            font-size: 2.5rem;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1a1a1a;
             margin-bottom: 0.5rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            letter-spacing: -0.025em;
         }
         .subtitle {
-            opacity: 0.9;
-            font-size: 1.1rem;
+            color: #737373;
+            font-size: 0.875rem;
+            font-weight: 400;
         }
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
         }
         .card {
             background: white;
-            border-radius: 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
             padding: 1.5rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: border-color 0.2s ease;
+        }
+        .card:hover {
+            border-color: #d4d4d4;
         }
         .card h2 {
-            font-size: 1.25rem;
-            color: #333;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #737373;
+            margin-bottom: 1.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         .status-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
             font-size: 0.875rem;
-            font-weight: 600;
+            font-weight: 500;
+            color: #1a1a1a;
         }
-        .status-healthy {
-            background: #10b981;
-            color: white;
+        .status-badge::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
         }
-        .status-warning {
+        .status-warning::before {
             background: #f59e0b;
-            color: white;
         }
         .stat {
             display: flex;
             justify-content: space-between;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #e5e7eb;
+            align-items: baseline;
+            padding: 0.875rem 0;
+            border-bottom: 1px solid #f5f5f5;
         }
         .stat:last-child {
             border-bottom: none;
+            padding-bottom: 0;
+        }
+        .stat:first-child {
+            padding-top: 0;
         }
         .stat-label {
-            color: #6b7280;
+            color: #737373;
             font-size: 0.875rem;
+            font-weight: 400;
         }
         .stat-value {
-            font-weight: 600;
-            color: #111827;
+            font-weight: 500;
+            color: #1a1a1a;
+            font-size: 0.875rem;
+            font-variant-numeric: tabular-nums;
         }
         .big-stat {
-            text-align: center;
-            padding: 1rem 0;
+            padding: 1.5rem 0;
         }
         .big-stat-value {
-            font-size: 3rem;
-            font-weight: 700;
-            color: #667eea;
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: #1a1a1a;
             line-height: 1;
+            letter-spacing: -0.025em;
+            font-variant-numeric: tabular-nums;
         }
         .big-stat-label {
-            color: #6b7280;
-            margin-top: 0.5rem;
+            color: #737373;
+            margin-top: 0.75rem;
             font-size: 0.875rem;
+            font-weight: 400;
         }
         .request-list {
-            max-height: 300px;
+            max-height: 320px;
             overflow-y: auto;
+            margin: -0.5rem;
+            padding: 0.5rem;
+        }
+        .request-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .request-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .request-list::-webkit-scrollbar-thumb {
+            background: #e5e5e5;
+            border-radius: 3px;
+        }
+        .request-list::-webkit-scrollbar-thumb:hover {
+            background: #d4d4d4;
         }
         .request-item {
-            padding: 0.75rem;
-            border-left: 3px solid #e5e7eb;
-            margin-bottom: 0.75rem;
-            background: #f9fafb;
-            border-radius: 4px;
-            font-size: 0.875rem;
+            padding: 0.875rem;
+            border: 1px solid #f5f5f5;
+            margin-bottom: 0.5rem;
+            background: #fafafa;
+            border-radius: 6px;
+            font-size: 0.8125rem;
+            transition: border-color 0.2s ease;
+        }
+        .request-item:hover {
+            border-color: #e5e5e5;
         }
         .request-item.success {
-            border-left-color: #10b981;
+            border-left: 2px solid #22c55e;
         }
         .request-item.error {
-            border-left-color: #ef4444;
+            border-left: 2px solid #ef4444;
         }
         .request-url {
-            color: #111827;
+            color: #1a1a1a;
             font-weight: 500;
             word-break: break-all;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.8125rem;
         }
         .request-meta {
-            color: #6b7280;
-            font-size: 0.8rem;
+            color: #a3a3a3;
+            font-size: 0.75rem;
+            font-variant-numeric: tabular-nums;
         }
         .error-message {
             color: #dc2626;
-            font-size: 0.8rem;
-            margin-top: 0.25rem;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #fef2f2;
         }
         .refresh-indicator {
             text-align: center;
-            color: white;
-            opacity: 0.8;
-            font-size: 0.875rem;
-            margin-top: 1rem;
+            color: #a3a3a3;
+            font-size: 0.75rem;
+            margin-top: 2rem;
+            font-variant-numeric: tabular-nums;
         }
         .loading {
-            opacity: 0.6;
+            opacity: 0.5;
         }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            50% { opacity: 0.4; }
         }
         .pulse {
-            animation: pulse 2s ease-in-out infinite;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🕷️ Scraper MCP</h1>
+            <h1>Scraper MCP</h1>
             <p class="subtitle">Web Scraping Server Dashboard</p>
         </header>
 
@@ -943,7 +986,7 @@ async def dashboard(request: Request) -> HTMLResponse:
                 <h2>Server Status</h2>
                 <div class="stat">
                     <span class="stat-label">Status</span>
-                    <span class="stat-value"><span id="status" class="status-badge status-healthy">Healthy</span></span>
+                    <span class="stat-value"><span id="status" class="status-badge">Healthy</span></span>
                 </div>
                 <div class="stat">
                     <span class="stat-label">Uptime</span>
