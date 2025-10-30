@@ -926,61 +926,80 @@ async def dashboard(request: Request) -> HTMLResponse:
             font-size: 0.875rem;
             font-weight: 400;
         }
-        .request-list {
+        .request-table-container {
             max-height: 320px;
-            overflow-y: auto;
-            margin: -0.5rem;
-            padding: 0.5rem;
+            overflow: auto;
         }
-        .request-list::-webkit-scrollbar {
+        .request-table-container::-webkit-scrollbar {
             width: 6px;
+            height: 6px;
         }
-        .request-list::-webkit-scrollbar-track {
+        .request-table-container::-webkit-scrollbar-track {
             background: transparent;
         }
-        .request-list::-webkit-scrollbar-thumb {
+        .request-table-container::-webkit-scrollbar-thumb {
             background: #e5e5e5;
             border-radius: 3px;
         }
-        .request-list::-webkit-scrollbar-thumb:hover {
-            background: #d4d4d4;
-        }
-        .request-item {
-            padding: 0.875rem;
-            border: 1px solid #f5f5f5;
-            margin-bottom: 0.5rem;
-            background: #fafafa;
-            border-radius: 6px;
-            font-size: 0.8125rem;
-            transition: border-color 0.2s ease;
-        }
-        .request-item:hover {
-            border-color: #e5e5e5;
-        }
-        .request-item.success {
-            border-left: 2px solid #22c55e;
-        }
-        .request-item.error {
-            border-left: 2px solid #ef4444;
-        }
-        .request-url {
-            color: #1a1a1a;
-            font-weight: 500;
-            word-break: break-all;
-            margin-bottom: 0.5rem;
-            font-size: 0.8125rem;
-        }
-        .request-meta {
-            color: #a3a3a3;
+        .request-table {
+            width: 100%;
+            border-collapse: collapse;
             font-size: 0.75rem;
+        }
+        .request-table th {
+            position: sticky;
+            top: 0;
+            background: white;
+            font-weight: 500;
+            color: #737373;
+            text-align: left;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid #e5e5e5;
+            text-transform: uppercase;
+            font-size: 0.625rem;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
+        .request-table td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid #f5f5f5;
+            color: #1a1a1a;
+        }
+        .request-table tbody tr:hover {
+            background: #fafafa;
+        }
+        .request-table .time-col {
+            color: #737373;
+            white-space: nowrap;
             font-variant-numeric: tabular-nums;
         }
+        .request-table .status-col {
+            white-space: nowrap;
+            font-weight: 500;
+        }
+        .request-table .status-success {
+            color: #22c55e;
+        }
+        .request-table .status-error {
+            color: #ef4444;
+        }
+        .request-table .response-time-col {
+            text-align: right;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+            color: #737373;
+        }
+        .request-table .url-col {
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         .error-message {
+            display: block;
             color: #dc2626;
-            font-size: 0.75rem;
-            margin-top: 0.5rem;
-            padding-top: 0.5rem;
-            border-top: 1px solid #fef2f2;
+            font-size: 0.7rem;
+            margin-top: 0.25rem;
         }
         .refresh-indicator {
             text-align: center;
@@ -1100,15 +1119,39 @@ async def dashboard(request: Request) -> HTMLResponse:
 
         <div class="card">
             <h2>Recent Requests (Last 10)</h2>
-            <div class="request-list" id="recent-requests">
-                <p style="text-align: center; color: #737373; padding: 2rem;">Loading...</p>
+            <div class="request-table-container">
+                <table class="request-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th class="response-time-col">Response</th>
+                            <th>URL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-requests">
+                        <tr><td colspan="4" style="text-align: center; color: #737373; padding: 1rem;">Loading...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
         <div class="card">
             <h2>Recent Errors (Last 10)</h2>
-            <div class="request-list" id="recent-errors">
-                <p style="text-align: center; color: #737373; padding: 2rem;">No errors</p>
+            <div class="request-table-container">
+                <table class="request-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th class="response-time-col">Attempts</th>
+                            <th>URL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-errors">
+                        <tr><td colspan="4" style="text-align: center; color: #737373; padding: 1rem;">No errors</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -1159,20 +1202,21 @@ async def dashboard(request: Request) -> HTMLResponse:
             const recentRequestsEl = document.getElementById('recent-requests');
             if (data.recent_requests.length > 0) {
                 recentRequestsEl.innerHTML = data.recent_requests.map(req => {
-                    const className = req.success ? 'success' : 'error';
+                    const statusClass = req.success ? 'status-success' : 'status-error';
+                    const statusText = req.success ? `${req.status_code}` : `${req.status_code || 'ERR'}`;
                     const timestamp = new Date(req.timestamp).toLocaleTimeString();
-                    const attempts = req.attempts > 1 ? ` (${req.attempts} attempts)` : '';
+                    const responseTime = req.elapsed_ms ? `${req.elapsed_ms.toFixed(0)}ms` : '-';
                     return `
-                        <div class="request-item ${className}">
-                            <div class="request-url">${escapeHtml(req.url)}</div>
-                            <div class="request-meta">
-                                ${timestamp} • ${req.status_code || 'N/A'} • ${req.elapsed_ms ? req.elapsed_ms.toFixed(0) + 'ms' : 'N/A'}${attempts}
-                            </div>
-                        </div>
+                        <tr>
+                            <td class="time-col">${timestamp}</td>
+                            <td class="status-col ${statusClass}">${statusText}</td>
+                            <td class="response-time-col">${responseTime}</td>
+                            <td class="url-col" title="${escapeHtml(req.url)}">${escapeHtml(req.url)}</td>
+                        </tr>
                     `;
                 }).join('');
             } else {
-                recentRequestsEl.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No requests yet</p>';
+                recentRequestsEl.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #737373; padding: 1rem;">No requests yet</td></tr>';
             }
 
             // Recent errors
@@ -1180,17 +1224,20 @@ async def dashboard(request: Request) -> HTMLResponse:
             if (data.recent_errors.length > 0) {
                 recentErrorsEl.innerHTML = data.recent_errors.map(err => {
                     const timestamp = new Date(err.timestamp).toLocaleTimeString();
-                    const attempts = err.attempts > 1 ? ` (${err.attempts} attempts)` : '';
+                    const statusText = err.status_code || 'ERR';
+                    const attempts = err.attempts > 1 ? `${err.attempts}x` : '1x';
+                    const errorMsg = err.error ? `<span class="error-message">${escapeHtml(err.error)}</span>` : '';
                     return `
-                        <div class="request-item error">
-                            <div class="request-url">${escapeHtml(err.url)}</div>
-                            <div class="request-meta">${timestamp} • ${err.status_code || 'N/A'}${attempts}</div>
-                            <div class="error-message">${escapeHtml(err.error || 'Unknown error')}</div>
-                        </div>
+                        <tr>
+                            <td class="time-col">${timestamp}</td>
+                            <td class="status-col status-error">${statusText}</td>
+                            <td class="response-time-col">${attempts}</td>
+                            <td class="url-col" title="${escapeHtml(err.url)}">${escapeHtml(err.url)}${errorMsg}</td>
+                        </tr>
                     `;
                 }).join('');
             } else {
-                recentErrorsEl.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No errors</p>';
+                recentErrorsEl.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #737373; padding: 1rem;">No errors</td></tr>';
             }
         }
 
