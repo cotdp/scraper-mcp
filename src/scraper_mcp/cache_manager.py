@@ -204,10 +204,12 @@ class CacheManager:
             return False
 
     def clear(self) -> None:
-        """Clear all entries from cache."""
+        """Clear all entries from cache and reset statistics."""
         try:
             self.cache.clear(retry=True)
-            logger.info("Cache cleared successfully")
+            # Reset cache statistics (hits and misses)
+            self.cache.stats(reset=True)
+            logger.info("Cache cleared successfully and statistics reset")
         except Exception as e:
             logger.error(f"Cache clear error: {e}")
 
