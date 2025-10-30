@@ -1875,7 +1875,7 @@ async def dashboard(request: Request) -> HTMLResponse:
                 const text = await response.text();
 
                 // Parse SSE response - last data event has the result
-                const lines = text.trim().split('\n');
+                const lines = text.trim().split('\\n');
                 let result = null;
 
                 for (let i = 0; i < lines.length; i++) {
