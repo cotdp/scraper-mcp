@@ -24,11 +24,26 @@ RUN uv pip install --system -e .
 # Copy application code
 COPY src/ ./src/
 
+# Create cache directory with proper permissions
+RUN mkdir -p /app/cache && chmod 777 /app/cache
+
+# Create non-root user for security
+RUN groupadd -r scraper && useradd -r -g scraper scraper
+
+# Change ownership of app and cache directories
+RUN chown -R scraper:scraper /app
+
+# Switch to non-root user
+USER scraper
+
 # Expose default port
 EXPOSE 8000
 
 # Set Python path
 ENV PYTHONPATH=/app
+
+# Set cache directory environment variable
+ENV CACHE_DIR=/app/cache
 
 # Run the server
 CMD ["python", "-m", "scraper_mcp"]

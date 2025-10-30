@@ -41,6 +41,12 @@ htmlcov/
 *.cover
 .hypothesis/
 
+# Cache
+.cache/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
 # Type checking
 .mypy_cache/
 .dmypy.json

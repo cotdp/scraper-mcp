@@ -14,7 +14,19 @@ services:
       # Set host and port
       - HOST=0.0.0.0
       - PORT=8000
+      # Set cache directory
+      - CACHE_DIR=/app/cache
+    volumes:
+      # Persistent cache volume (~1GB target)
+      - cache_data:/app/cache
     restart: unless-stopped
+    # Memory limit: 1.5GB (1GB for cache + 0.5GB overhead)
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+        reservations:
+          memory: 512M
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
       interval: 30s
@@ -23,6 +35,11 @@ services:
       start_period: 10s
     networks:
       - mcp-network
+
+volumes:
+  # Named volume for persistent cache storage
+  cache_data:
+    driver: local
 
 networks:
   mcp-network:

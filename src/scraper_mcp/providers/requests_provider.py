@@ -1,19 +1,25 @@
-"""Basic scraper provider using Python requests library."""
+"""Basic scraper provider using Python requests library with caching."""
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import Any
 from urllib.parse import urlparse
 
 import requests
+from requests_cache import CachedSession
 
+from scraper_mcp.cache import create_cached_session
 from scraper_mcp.providers.base import ScrapeResult, ScraperProvider
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class RequestsProvider(ScraperProvider):
-    """Basic web scraper using the requests library with retry support."""
+    """Web scraper using requests library with persistent HTTP caching and retry support."""
 
     def __init__(
         self,
@@ -21,19 +27,34 @@ class RequestsProvider(ScraperProvider):
         max_retries: int = 3,
         retry_delay: float = 1.0,
         user_agent: str = "Mozilla/5.0 (compatible; ScraperMCP/0.1.0)",
+        cache_enabled: bool = True,
+        cache_expire_after: int = 3600,
     ) -> None:
-        """Initialize the requests provider.
+        """Initialize the requests provider with caching support.
 
         Args:
             timeout: Request timeout in seconds (default: 30)
             max_retries: Maximum number of retry attempts (default: 3)
             retry_delay: Initial delay between retries in seconds (default: 1.0)
             user_agent: User agent string to use for requests
+            cache_enabled: Enable HTTP caching (default: True)
+            cache_expire_after: Cache expiration time in seconds (default: 3600)
         """
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
         self.user_agent = user_agent
+        self.cache_enabled = cache_enabled
+
+        # Initialize cached session if caching is enabled
+        if cache_enabled:
+            self.session: CachedSession | requests.Session = create_cached_session(
+                expire_after=cache_expire_after
+            )
+            logger.info("RequestsProvider initialized with caching enabled")
+        else:
+            self.session = requests.Session()
+            logger.info("RequestsProvider initialized with caching disabled")
 
     def supports_url(self, url: str) -> bool:
         """Check if this provider supports the given URL.
@@ -51,7 +72,7 @@ class RequestsProvider(ScraperProvider):
             return False
 
     async def scrape(self, url: str, **kwargs: Any) -> ScrapeResult:
-        """Scrape content from a URL using requests with retry logic.
+        """Scrape content from a URL using requests with caching and retry logic.
 
         Args:
             url: The URL to scrape
@@ -85,20 +106,33 @@ class RequestsProvider(ScraperProvider):
                 loop = asyncio.get_event_loop()
                 response = await loop.run_in_executor(
                     None,
-                    lambda: requests.get(url, headers=headers, timeout=timeout),
+                    lambda: self.session.get(url, headers=headers, timeout=timeout),
                 )
 
                 # Raise for bad status codes
                 response.raise_for_status()
 
-                # Extract metadata including retry info
+                # Check if response came from cache
+                from_cache = getattr(response, "from_cache", False)
+
+                if from_cache:
+                    logger.debug(f"Cache HIT for URL: {url}")
+                else:
+                    logger.debug(f"Cache MISS for URL: {url}")
+
+                # Extract metadata including retry info and cache status
                 metadata = {
                     "headers": dict(response.headers),
                     "encoding": response.encoding,
                     "elapsed_ms": response.elapsed.total_seconds() * 1000,
                     "attempts": attempt + 1,
                     "retries": attempt,
+                    "from_cache": from_cache,
                 }
+
+                # Add cache expiration info if cached response
+                if from_cache and hasattr(response, "expires"):
+                    metadata["cache_expires"] = str(response.expires)
 
                 return ScrapeResult(
                     url=response.url,
@@ -122,6 +156,11 @@ class RequestsProvider(ScraperProvider):
 
                 # Calculate exponential backoff delay
                 delay = self.retry_delay * (2 ** (attempt - 1))
+
+                logger.debug(
+                    f"Retry attempt {attempt}/{max_retries} for {url} "
+                    f"after {delay:.2f}s delay"
+                )
 
                 # Sleep before retry (run in thread pool to not block event loop)
                 await asyncio.sleep(delay)

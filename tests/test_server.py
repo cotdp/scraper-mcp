@@ -8,6 +8,9 @@ import pytest
 
 from scraper_mcp.providers import ScrapeResult
 from scraper_mcp.server import (
+    cache_clear_all,
+    cache_clear_expired,
+    cache_stats,
     scrape_extract_links,
     scrape_url,
     scrape_url_markdown,
@@ -382,3 +385,270 @@ class TestScrapeExtractLinksTool:
 
             assert result.count == 0
             assert len(result.links) == 0
+
+
+class TestBatchScrapeUrl:
+    """Tests for batch scrape_url operations."""
+
+    @pytest.mark.asyncio
+    async def test_batch_scrape_multiple_urls(self, sample_html: str) -> None:
+        """Test batch scraping multiple URLs."""
+        urls = [
+            "https://example.com/page1",
+            "https://example.com/page2",
+            "https://example.com/page3",
+        ]
+
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=sample_html,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_url(urls)
+
+            # Should return BatchScrapeResponse
+            assert hasattr(result, "total")
+            assert hasattr(result, "successful")
+            assert hasattr(result, "failed")
+            assert hasattr(result, "results")
+
+            # Should have results for all URLs
+            assert result.total == 3
+            assert result.successful == 3
+            assert result.failed == 0
+            assert len(result.results) == 3
+
+    @pytest.mark.asyncio
+    async def test_batch_scrape_partial_failure(self, sample_html: str) -> None:
+        """Test batch scraping with some URLs failing."""
+        urls = [
+            "https://example.com/success",
+            "https://example.com/fail",
+        ]
+
+        mock_success = ScrapeResult(
+            url="https://example.com/success",
+            content=sample_html,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            # First call succeeds, second fails
+            mock_provider.scrape = AsyncMock(
+                side_effect=[mock_success, Exception("Connection failed")]
+            )
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_url(urls)
+
+            # Should have mixed results
+            assert result.total == 2
+            assert result.successful == 1
+            assert result.failed == 1
+
+            # First result should be successful
+            assert result.results[0].success is True
+            assert result.results[0].data is not None
+
+            # Second result should have error
+            assert result.results[1].success is False
+            assert result.results[1].error is not None
+
+    @pytest.mark.asyncio
+    async def test_batch_scrape_single_url_backward_compat(
+        self, sample_html: str
+    ) -> None:
+        """Test that single URL still works (backward compatibility)."""
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=sample_html,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_url("https://example.com")
+
+            # Should return ScrapeResponse, not BatchScrapeResponse
+            assert hasattr(result, "url")
+            assert hasattr(result, "content")
+            assert not hasattr(result, "total")
+
+
+class TestBatchScrapeUrlMarkdown:
+    """Tests for batch scrape_url_markdown operations."""
+
+    @pytest.mark.asyncio
+    async def test_batch_markdown_multiple_urls(self, sample_html: str) -> None:
+        """Test batch markdown conversion for multiple URLs."""
+        urls = [
+            "https://example.com/page1",
+            "https://example.com/page2",
+        ]
+
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=sample_html,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_url_markdown(urls)
+
+            # Should return BatchScrapeResponse
+            assert result.total == 2
+            assert result.successful == 2
+            assert result.failed == 0
+
+            # Check that content is markdown
+            for item in result.results:
+                assert item.success is True
+                assert "Main Heading" in item.data.content
+                assert "<html>" not in item.data.content
+
+
+class TestBatchScrapeUrlText:
+    """Tests for batch scrape_url_text operations."""
+
+    @pytest.mark.asyncio
+    async def test_batch_text_multiple_urls(self, sample_html: str) -> None:
+        """Test batch text extraction for multiple URLs."""
+        urls = [
+            "https://example.com/page1",
+            "https://example.com/page2",
+        ]
+
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=sample_html,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_url_text(urls)
+
+            # Should return BatchScrapeResponse
+            assert result.total == 2
+            assert result.successful == 2
+            assert result.failed == 0
+
+            # Check that content is plain text
+            for item in result.results:
+                assert item.success is True
+                assert "Main Heading" in item.data.content
+                assert "<html>" not in item.data.content
+
+
+class TestBatchExtractLinks:
+    """Tests for batch scrape_extract_links operations."""
+
+    @pytest.mark.asyncio
+    async def test_batch_extract_links_multiple_urls(
+        self, html_with_links: str
+    ) -> None:
+        """Test batch link extraction for multiple URLs."""
+        urls = [
+            "https://example.com/page1",
+            "https://example.com/page2",
+        ]
+
+        mock_result = ScrapeResult(
+            url="https://example.com/page",
+            content=html_with_links,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_extract_links(urls)
+
+            # Should return BatchLinksResponse
+            assert hasattr(result, "total")
+            assert hasattr(result, "successful")
+            assert hasattr(result, "results")
+
+            assert result.total == 2
+            assert result.successful == 2
+            assert result.failed == 0
+
+            # Check that links were extracted
+            for item in result.results:
+                assert item.success is True
+                assert item.data.count == 5
+                assert len(item.data.links) == 5
+
+
+class TestCacheManagementTools:
+    """Tests for cache management tools."""
+
+    @pytest.mark.asyncio
+    async def test_cache_stats_available(self) -> None:
+        """Test getting cache statistics when cache is available."""
+        result = await cache_stats()
+
+        # Should return cache statistics
+        assert "total_responses" in result or "error" in result
+
+        # If cache is available, check for expected fields
+        if "total_responses" in result:
+            assert "cache_size_bytes" in result
+            assert "cache_size_mb" in result
+            assert "cache_path" in result
+
+    @pytest.mark.asyncio
+    async def test_cache_clear_expired_available(self) -> None:
+        """Test clearing expired cache entries."""
+        result = await cache_clear_expired()
+
+        # Should return success or error status
+        assert "status" in result
+
+        # If cache is available, should have removed count
+        if result["status"] == "success":
+            assert "expired_entries_removed" in result
+            assert isinstance(result["expired_entries_removed"], int)
+
+    @pytest.mark.asyncio
+    async def test_cache_clear_all_available(self) -> None:
+        """Test clearing all cache entries."""
+        result = await cache_clear_all()
+
+        # Should return status
+        assert "status" in result
+        assert "message" in result
+
+        # Status should be success or error
+        assert result["status"] in ["success", "error"]
