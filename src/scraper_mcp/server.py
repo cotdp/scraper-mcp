@@ -112,6 +112,10 @@ _runtime_config: dict[str, Any] = {
     "cache_ttl_default": 3600,
     "cache_ttl_static": 86400,
     "cache_ttl_realtime": 300,
+    "proxy_enabled": False,
+    "http_proxy": "",
+    "https_proxy": "",
+    "no_proxy": "",
 }
 
 
@@ -866,6 +870,10 @@ async def api_config_get(request: Request) -> JSONResponse:
             "cache_ttl_default": 3600,
             "cache_ttl_static": 86400,
             "cache_ttl_realtime": 300,
+            "proxy_enabled": False,
+            "http_proxy": "",
+            "https_proxy": "",
+            "no_proxy": "",
         },
         "note": "Changes are not persisted and will reset on server restart"
     })
@@ -890,6 +898,10 @@ async def api_config_update(request: Request) -> JSONResponse:
             "cache_ttl_default",
             "cache_ttl_static",
             "cache_ttl_realtime",
+            "proxy_enabled",
+            "http_proxy",
+            "https_proxy",
+            "no_proxy",
         }
 
         updated = []
@@ -903,6 +915,12 @@ async def api_config_update(request: Request) -> JSONResponse:
                     _runtime_config[key] = value
                     updated.append(key)
                 elif key.startswith("cache_ttl_") and isinstance(value, int) and value >= 0:
+                    _runtime_config[key] = value
+                    updated.append(key)
+                elif key == "proxy_enabled" and isinstance(value, bool):
+                    _runtime_config[key] = value
+                    updated.append(key)
+                elif key in ("http_proxy", "https_proxy", "no_proxy") and isinstance(value, str):
                     _runtime_config[key] = value
                     updated.append(key)
 
@@ -1223,20 +1241,29 @@ async def dashboard(request: Request) -> HTMLResponse:
             cursor: not-allowed;
         }
         .form-group {
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .form-group-full {
+            grid-column: span 2;
         }
         .form-label {
             display: block;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 500;
             color: #737373;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.35rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
         .form-input {
             width: 100%;
-            padding: 0.5rem 0.75rem;
+            padding: 0.4rem 0.6rem;
             font-size: 0.875rem;
             border: 1px solid #e5e5e5;
             border-radius: 6px;
@@ -1250,6 +1277,36 @@ async def dashboard(request: Request) -> HTMLResponse:
         }
         .form-input[type="number"] {
             font-variant-numeric: tabular-nums;
+        }
+        .form-input:disabled {
+            background: #f5f5f5;
+            color: #a3a3a3;
+            cursor: not-allowed;
+        }
+        .form-help {
+            display: block;
+            color: #737373;
+            font-size: 0.7rem;
+            margin-top: 0.25rem;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 1rem;
+            height: 1rem;
+            cursor: pointer;
+        }
+        .checkbox-group label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #1a1a1a;
+            cursor: pointer;
+            margin: 0;
+            text-transform: none;
         }
         .alert {
             padding: 0.75rem 1rem;
@@ -1391,40 +1448,68 @@ async def dashboard(request: Request) -> HTMLResponse:
             <div class="card">
                 <h2>Runtime Configuration</h2>
                 <form id="config-form">
-                    <div class="form-group">
-                        <label class="form-label" for="concurrency">Concurrency</label>
-                        <input type="number" id="concurrency" class="form-input" min="1" max="50" value="8">
-                        <small style="color: #737373; font-size: 0.75rem;">Maximum concurrent requests (1-50)</small>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="concurrency">Concurrency</label>
+                            <input type="number" id="concurrency" class="form-input" min="1" max="50" value="8">
+                            <small class="form-help">Max concurrent requests (1-50)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="default_timeout">Default Timeout</label>
+                            <input type="number" id="default_timeout" class="form-input" min="1" value="30">
+                            <small class="form-help">Request timeout in seconds</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="default_max_retries">Max Retries</label>
+                            <input type="number" id="default_max_retries" class="form-input" min="0" value="3">
+                            <small class="form-help">Max retry attempts on failure</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="cache_ttl_default">Cache TTL - Default</label>
+                            <input type="number" id="cache_ttl_default" class="form-input" min="0" value="3600">
+                            <small class="form-help">Default cache (1h = 3600s)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="cache_ttl_static">Cache TTL - Static</label>
+                            <input type="number" id="cache_ttl_static" class="form-input" min="0" value="86400">
+                            <small class="form-help">Static/CDN cache (24h = 86400s)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="cache_ttl_realtime">Cache TTL - Realtime</label>
+                            <input type="number" id="cache_ttl_realtime" class="form-input" min="0" value="300">
+                            <small class="form-help">API/live data cache (5m = 300s)</small>
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="default_timeout">Default Timeout (seconds)</label>
-                        <input type="number" id="default_timeout" class="form-input" min="1" value="30">
-                        <small style="color: #737373; font-size: 0.75rem;">Request timeout in seconds</small>
+                    <h2 style="margin-top: 1.5rem;">Proxy Settings</h2>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="proxy_enabled">
+                        <label for="proxy_enabled">Enable Proxy</label>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="default_max_retries">Default Max Retries</label>
-                        <input type="number" id="default_max_retries" class="form-input" min="0" value="3">
-                        <small style="color: #737373; font-size: 0.75rem;">Maximum retry attempts on failure</small>
-                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="http_proxy">HTTP Proxy</label>
+                            <input type="text" id="http_proxy" class="form-input" placeholder="http://proxy:8080">
+                            <small class="form-help">HTTP proxy URL</small>
+                        </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="cache_ttl_default">Cache TTL - Default (seconds)</label>
-                        <input type="number" id="cache_ttl_default" class="form-input" min="0" value="3600">
-                        <small style="color: #737373; font-size: 0.75rem;">Default cache duration (1 hour)</small>
-                    </div>
+                        <div class="form-group">
+                            <label class="form-label" for="https_proxy">HTTPS Proxy</label>
+                            <input type="text" id="https_proxy" class="form-input" placeholder="https://proxy:8443">
+                            <small class="form-help">HTTPS proxy URL</small>
+                        </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="cache_ttl_static">Cache TTL - Static Assets (seconds)</label>
-                        <input type="number" id="cache_ttl_static" class="form-input" min="0" value="86400">
-                        <small style="color: #737373; font-size: 0.75rem;">Cache duration for static/CDN content (24 hours)</small>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label" for="cache_ttl_realtime">Cache TTL - Realtime Data (seconds)</label>
-                        <input type="number" id="cache_ttl_realtime" class="form-input" min="0" value="300">
-                        <small style="color: #737373; font-size: 0.75rem;">Cache duration for realtime/API data (5 minutes)</small>
+                        <div class="form-group form-group-full">
+                            <label class="form-label" for="no_proxy">No Proxy</label>
+                            <input type="text" id="no_proxy" class="form-input" placeholder="localhost,127.0.0.1,.local">
+                            <small class="form-help">Comma-separated list of hosts to bypass proxy</small>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn">Apply Changes</button>
@@ -1605,6 +1690,13 @@ async def dashboard(request: Request) -> HTMLResponse:
             }
         }
 
+        function toggleProxyInputs() {
+            const enabled = document.getElementById('proxy_enabled').checked;
+            document.getElementById('http_proxy').disabled = !enabled;
+            document.getElementById('https_proxy').disabled = !enabled;
+            document.getElementById('no_proxy').disabled = !enabled;
+        }
+
         async function loadConfig() {
             try {
                 const response = await fetch('/api/config');
@@ -1614,9 +1706,16 @@ async def dashboard(request: Request) -> HTMLResponse:
                 Object.entries(data.config).forEach(([key, value]) => {
                     const input = document.getElementById(key);
                     if (input) {
-                        input.value = value;
+                        if (input.type === 'checkbox') {
+                            input.checked = value;
+                        } else {
+                            input.value = value;
+                        }
                     }
                 });
+
+                // Update proxy input states
+                toggleProxyInputs();
             } catch (error) {
                 console.error('Failed to load config:', error);
             }
@@ -1635,6 +1734,10 @@ async def dashboard(request: Request) -> HTMLResponse:
                 cache_ttl_default: parseInt(document.getElementById('cache_ttl_default').value),
                 cache_ttl_static: parseInt(document.getElementById('cache_ttl_static').value),
                 cache_ttl_realtime: parseInt(document.getElementById('cache_ttl_realtime').value),
+                proxy_enabled: document.getElementById('proxy_enabled').checked,
+                http_proxy: document.getElementById('http_proxy').value,
+                https_proxy: document.getElementById('https_proxy').value,
+                no_proxy: document.getElementById('no_proxy').value,
             };
 
             try {
@@ -1665,6 +1768,9 @@ async def dashboard(request: Request) -> HTMLResponse:
 
         // Setup config form handler
         document.getElementById('config-form').addEventListener('submit', saveConfig);
+
+        // Setup proxy checkbox handler
+        document.getElementById('proxy_enabled').addEventListener('change', toggleProxyInputs);
     </script>
 </body>
 </html>
