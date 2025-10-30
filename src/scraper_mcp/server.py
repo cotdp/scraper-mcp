@@ -1329,9 +1329,9 @@ async def dashboard(request: Request) -> HTMLResponse:
         </header>
 
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
-            <button class="tab" onclick="switchTab('playground')">Playground</button>
-            <button class="tab" onclick="switchTab('config')">Config</button>
+            <button class="tab active" onclick="switchTab(event, 'dashboard')">Dashboard</button>
+            <button class="tab" onclick="switchTab(event, 'playground')">Playground</button>
+            <button class="tab" onclick="switchTab(event, 'config')">Config</button>
         </div>
 
         <div id="dashboard-tab" class="tab-content active">
@@ -1727,7 +1727,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             }
         }
 
-        function switchTab(tabName) {
+        function switchTab(event, tabName) {
             // Update tab buttons
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
