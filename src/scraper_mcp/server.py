@@ -768,6 +768,29 @@ async def api_stats(request: Request) -> JSONResponse:
     return JSONResponse(stats)
 
 
+@mcp.custom_route("/api/cache/clear", methods=["POST"])
+async def api_cache_clear(request: Request) -> JSONResponse:
+    """Clear all cache entries.
+
+    Returns:
+        JSONResponse with operation status
+    """
+    try:
+        clear_all_cache()
+        return JSONResponse({
+            "status": "success",
+            "message": "Cache cleared successfully"
+        })
+    except Exception as e:
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": str(e)
+            },
+            status_code=500
+        )
+
+
 @mcp.custom_route("/", methods=["GET"])
 async def dashboard(request: Request) -> HTMLResponse:
     """Serve the monitoring dashboard.
@@ -976,6 +999,33 @@ async def dashboard(request: Request) -> HTMLResponse:
         .pulse {
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
+        .btn {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            background: white;
+            color: #1a1a1a;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 1rem;
+            width: 100%;
+        }
+        .btn:hover {
+            border-color: #1a1a1a;
+            background: #fafafa;
+        }
+        .btn:active {
+            background: #f5f5f5;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -1044,6 +1094,7 @@ async def dashboard(request: Request) -> HTMLResponse:
                     <span class="stat-label">Hit Rate</span>
                     <span class="stat-value" id="cache-hit-rate">-</span>
                 </div>
+                <button class="btn" id="clear-cache-btn" onclick="clearCache()">Clear Cache</button>
             </div>
         </div>
 
@@ -1172,6 +1223,47 @@ async def dashboard(request: Request) -> HTMLResponse:
                     countdown = 10;
                 }
             }, 1000);
+        }
+
+        async function clearCache() {
+            const btn = document.getElementById('clear-cache-btn');
+
+            if (!confirm('Are you sure you want to clear the cache? This will remove all cached responses.')) {
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Clearing...';
+
+            try {
+                const response = await fetch('/api/cache/clear', {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    btn.textContent = 'Cleared!';
+                    setTimeout(() => {
+                        btn.textContent = 'Clear Cache';
+                        btn.disabled = false;
+                    }, 2000);
+
+                    // Refresh stats immediately
+                    fetchStats();
+                } else {
+                    btn.textContent = 'Failed';
+                    setTimeout(() => {
+                        btn.textContent = 'Clear Cache';
+                        btn.disabled = false;
+                    }, 2000);
+                }
+            } catch (error) {
+                console.error('Failed to clear cache:', error);
+                btn.textContent = 'Error';
+                setTimeout(() => {
+                    btn.textContent = 'Clear Cache';
+                    btn.disabled = false;
+                }, 2000);
+            }
         }
 
         // Initial load
