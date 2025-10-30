@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 import requests
 
@@ -45,6 +46,23 @@ class RequestsProvider(ScraperProvider):
         # Initialize standard requests session
         self.session = requests.Session()
 
+        # ScrapeOps proxy configuration (optional, enabled if API key present)
+        self.scrapeops_api_key = os.getenv("SCRAPEOPS_API_KEY")
+        self.scrapeops_enabled = bool(self.scrapeops_api_key)
+
+        if self.scrapeops_enabled:
+            # ScrapeOps configuration options with sensible defaults
+            self.scrapeops_render_js = os.getenv("SCRAPEOPS_RENDER_JS", "false").lower() in ("true", "1", "yes")
+            self.scrapeops_residential = os.getenv("SCRAPEOPS_RESIDENTIAL", "false").lower() in ("true", "1", "yes")
+            self.scrapeops_country = os.getenv("SCRAPEOPS_COUNTRY", "")
+            self.scrapeops_keep_headers = os.getenv("SCRAPEOPS_KEEP_HEADERS", "false").lower() in ("true", "1", "yes")
+            self.scrapeops_device = os.getenv("SCRAPEOPS_DEVICE", "desktop")
+
+            logger.info(
+                f"RequestsProvider initialized with ScrapeOps proxy enabled "
+                f"(render_js={self.scrapeops_render_js}, residential={self.scrapeops_residential})"
+            )
+
         # Get cache manager if caching is enabled
         if cache_enabled:
             self.cache_manager = get_cache_manager()
@@ -68,6 +86,40 @@ class RequestsProvider(ScraperProvider):
         except Exception:
             return False
 
+    def _build_scrapeops_url(self, target_url: str) -> str:
+        """Build ScrapeOps proxy URL with configured options.
+
+        Args:
+            target_url: The target URL to scrape
+
+        Returns:
+            ScrapeOps proxy URL with all configured parameters
+        """
+        params = {
+            "api_key": self.scrapeops_api_key,
+            "url": target_url,
+        }
+
+        # Add optional parameters if configured
+        if self.scrapeops_render_js:
+            params["render_js"] = "true"
+
+        if self.scrapeops_residential:
+            params["residential"] = "true"
+
+        if self.scrapeops_country:
+            params["country"] = self.scrapeops_country
+
+        if self.scrapeops_keep_headers:
+            params["keep_headers"] = "true"
+
+        if self.scrapeops_device and self.scrapeops_device != "desktop":
+            params["device"] = self.scrapeops_device
+
+        # Build full proxy URL
+        proxy_url = f"https://proxy.scrapeops.io/v1/?{urlencode(params)}"
+        return proxy_url
+
     async def scrape(self, url: str, **kwargs: Any) -> ScrapeResult:
         """Scrape content from a URL using requests with caching and retry logic.
 
@@ -89,28 +141,36 @@ class RequestsProvider(ScraperProvider):
         max_retries = kwargs.get("max_retries", self.max_retries)
         headers = kwargs.get("headers", {})
 
-        # Set default user agent if not provided
-        if "User-Agent" not in headers:
+        # Set default user agent if not provided (unless using ScrapeOps)
+        if "User-Agent" not in headers and not self.scrapeops_enabled:
             headers["User-Agent"] = self.user_agent
 
-        # Check cache if enabled
+        # Determine request URL (original or via ScrapeOps proxy)
+        original_url = url
+        if self.scrapeops_enabled:
+            request_url = self._build_scrapeops_url(url)
+            logger.debug(f"Using ScrapeOps proxy for URL: {url}")
+        else:
+            request_url = url
+
+        # Check cache if enabled (use original URL for cache key)
         cache_key = None
         if self.cache_enabled and self.cache_manager:
-            # Generate cache key
+            # Generate cache key using original URL (not proxy URL)
             cache_key = self.cache_manager.generate_cache_key(
-                url=url,
+                url=original_url,
                 headers=headers,
             )
 
             # Try to get from cache
             cached_result = self.cache_manager.get(cache_key)
             if cached_result is not None:
-                logger.debug(f"Cache HIT for URL: {url}")
+                logger.debug(f"Cache HIT for URL: {original_url}")
                 # Add cache metadata
                 cached_result.metadata["from_cache"] = True
                 return cached_result
 
-            logger.debug(f"Cache MISS for URL: {url}")
+            logger.debug(f"Cache MISS for URL: {original_url}")
 
         # Retry loop with exponential backoff
         last_exception: Exception | None = None
@@ -122,7 +182,7 @@ class RequestsProvider(ScraperProvider):
                 loop = asyncio.get_event_loop()
                 response = await loop.run_in_executor(
                     None,
-                    lambda: self.session.get(url, headers=headers, timeout=timeout),
+                    lambda: self.session.get(request_url, headers=headers, timeout=timeout),
                 )
 
                 # Raise for bad status codes
@@ -138,8 +198,13 @@ class RequestsProvider(ScraperProvider):
                     "from_cache": False,
                 }
 
+                # Add ScrapeOps metadata if enabled
+                if self.scrapeops_enabled:
+                    metadata["scrapeops_enabled"] = True
+                    metadata["scrapeops_render_js"] = self.scrapeops_render_js
+
                 result = ScrapeResult(
-                    url=response.url,
+                    url=original_url,  # Use original URL, not proxy URL
                     content=response.text,
                     status_code=response.status_code,
                     content_type=response.headers.get("Content-Type"),
@@ -148,9 +213,9 @@ class RequestsProvider(ScraperProvider):
 
                 # Store in cache if enabled
                 if self.cache_enabled and self.cache_manager and cache_key:
-                    ttl = self.cache_manager.get_ttl_for_url(url)
+                    ttl = self.cache_manager.get_ttl_for_url(original_url)
                     self.cache_manager.set(cache_key, result, expire=ttl)
-                    logger.debug(f"Cached result for URL: {url} (TTL: {ttl}s)")
+                    logger.debug(f"Cached result for URL: {original_url} (TTL: {ttl}s)")
 
                 return result
 
@@ -170,7 +235,7 @@ class RequestsProvider(ScraperProvider):
                 delay = self.retry_delay * (2 ** (attempt - 1))
 
                 logger.debug(
-                    f"Retry attempt {attempt}/{max_retries} for {url} "
+                    f"Retry attempt {attempt}/{max_retries} for {original_url} "
                     f"after {delay:.2f}s delay"
                 )
 

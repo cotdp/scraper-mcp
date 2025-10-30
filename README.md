@@ -404,6 +404,152 @@ docker-compose logs scraper-mcp
 
 The `requests` library automatically respects these environment variables and will route all HTTP/HTTPS traffic through the configured proxy.
 
+## ScrapeOps Proxy Integration
+
+The scraper includes optional integration with [ScrapeOps](https://scrapeops.io/), a premium proxy service that helps bypass anti-bot measures, render JavaScript, and access geo-restricted content. ScrapeOps automatically enables when an API key is provided.
+
+### What is ScrapeOps?
+
+ScrapeOps provides:
+- **JavaScript rendering**: Scrape SPAs and dynamic content
+- **Residential proxies**: Less likely to be blocked
+- **Geo-targeting**: Access content from specific countries
+- **Anti-bot bypass**: Automatic header rotation and fingerprinting
+- **High success rate**: Smart retry and optimization
+
+### Enabling ScrapeOps
+
+Simply add your API key to the `.env` file:
+
+```bash
+# Get your API key from https://scrapeops.io/
+SCRAPEOPS_API_KEY=your_api_key_here
+```
+
+That's it! All scraping requests will automatically route through ScrapeOps. No changes needed to your MCP tools or code.
+
+### Configuration Options
+
+Customize ScrapeOps behavior with environment variables (see `.env.example` for full reference):
+
+```bash
+# Enable JavaScript rendering for SPAs (default: false)
+SCRAPEOPS_RENDER_JS=true
+
+# Use residential proxies instead of datacenter (default: false)
+SCRAPEOPS_RESIDENTIAL=true
+
+# Target specific country (optional)
+SCRAPEOPS_COUNTRY=us
+
+# Keep original headers instead of optimizing (default: false)
+SCRAPEOPS_KEEP_HEADERS=true
+
+# Device type for user agent rotation (default: desktop)
+SCRAPEOPS_DEVICE=mobile
+```
+
+### Full Example Configuration
+
+```bash
+# .env file
+SCRAPEOPS_API_KEY=your_api_key_here
+SCRAPEOPS_RENDER_JS=true
+SCRAPEOPS_RESIDENTIAL=true
+SCRAPEOPS_COUNTRY=us
+SCRAPEOPS_DEVICE=desktop
+```
+
+Start the server:
+
+```bash
+docker-compose up -d
+```
+
+### When to Use ScrapeOps Options
+
+**JavaScript Rendering** (`SCRAPEOPS_RENDER_JS=true`):
+- Single Page Applications (SPAs) built with React, Vue, Angular
+- Sites that load content dynamically via AJAX
+- Pages with infinite scroll or lazy loading
+- Content hidden behind click handlers
+
+**Residential Proxies** (`SCRAPEOPS_RESIDENTIAL=true`):
+- Sites with aggressive bot detection
+- E-commerce platforms
+- Social media sites
+- Sites that block datacenter IPs
+
+**Country Targeting** (`SCRAPEOPS_COUNTRY=us`):
+- Geo-restricted content
+- Price comparison across regions
+- Localized search results
+- Region-specific product catalogs
+
+**Device Selection** (`SCRAPEOPS_DEVICE=mobile`):
+- Mobile-only content
+- Responsive design testing
+- App landing pages
+- Mobile-optimized layouts
+
+### Cost Considerations
+
+ScrapeOps is a paid service with usage-based pricing:
+- **Standard proxies**: ~$0.001-0.002 per request
+- **JavaScript rendering**: ~$0.01 per request
+- **Residential proxies**: ~$0.02-0.05 per request
+
+Tips to optimize costs:
+1. Enable caching to avoid duplicate requests
+2. Only use `SCRAPEOPS_RENDER_JS=true` when necessary
+3. Use datacenter proxies by default, residential only for tough sites
+4. Set appropriate `NO_PROXY` patterns for internal/local URLs
+
+### Verifying ScrapeOps is Active
+
+Check container logs to confirm ScrapeOps is enabled:
+
+```bash
+docker-compose logs scraper-mcp | grep ScrapeOps
+```
+
+You should see:
+```
+RequestsProvider initialized with ScrapeOps proxy enabled (render_js=true, residential=false)
+```
+
+Response metadata will also include ScrapeOps information:
+```json
+{
+  "scrapeops_enabled": true,
+  "scrapeops_render_js": true
+}
+```
+
+### Disabling ScrapeOps
+
+To disable ScrapeOps, simply remove or comment out the API key:
+
+```bash
+# SCRAPEOPS_API_KEY=your_api_key_here
+```
+
+Restart the container:
+
+```bash
+docker-compose restart scraper-mcp
+```
+
+The scraper will fall back to direct HTTP requests.
+
+### Combining with Standard Proxies
+
+You cannot use both ScrapeOps and standard HTTP proxies simultaneously. When `SCRAPEOPS_API_KEY` is set, ScrapeOps takes precedence and standard proxy settings (`HTTP_PROXY`, `HTTPS_PROXY`) are ignored.
+
+Choose one:
+- **ScrapeOps**: Advanced features, anti-bot, JavaScript rendering
+- **Standard Proxy**: Simple proxy routing, corporate firewalls
+
 ## License
 
 This project is licensed under the MIT License.

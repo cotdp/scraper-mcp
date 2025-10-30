@@ -29,6 +29,13 @@ services:
       - http_proxy=${http_proxy:-}
       - https_proxy=${https_proxy:-}
       - no_proxy=${no_proxy:-}
+      # ScrapeOps proxy configuration (optional, enabled if API key provided)
+      - SCRAPEOPS_API_KEY=${SCRAPEOPS_API_KEY:-}
+      - SCRAPEOPS_RENDER_JS=${SCRAPEOPS_RENDER_JS:-false}
+      - SCRAPEOPS_RESIDENTIAL=${SCRAPEOPS_RESIDENTIAL:-false}
+      - SCRAPEOPS_COUNTRY=${SCRAPEOPS_COUNTRY:-}
+      - SCRAPEOPS_KEEP_HEADERS=${SCRAPEOPS_KEEP_HEADERS:-false}
+      - SCRAPEOPS_DEVICE=${SCRAPEOPS_DEVICE:-desktop}
     volumes:
       # Persistent cache volume (~1GB target)
       - cache_data:/app/cache
