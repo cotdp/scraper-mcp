@@ -41,7 +41,7 @@ services:
         reservations:
           memory: 512M
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; r = requests.get('http://localhost:8000/mcp', timeout=5); exit(0 if r.status_code in [200, 406] else 1)"]
+      test: ["CMD", "python", "-c", "import requests; r = requests.get('http://localhost:8000/healthz', timeout=5); exit(0 if r.status_code == 200 else 1)"]
       interval: 30s
       timeout: 10s
       retries: 3

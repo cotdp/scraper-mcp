@@ -8,6 +8,8 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from scraper_mcp.cache import clear_all_cache, clear_expired_cache, get_cache_stats
 from scraper_mcp.providers import RequestsProvider, ScraperProvider
@@ -663,6 +665,16 @@ if ENABLE_CACHE_TOOLS:
             "status": "success",
             "message": "All cache entries cleared",
         }
+
+
+@mcp.custom_route("/healthz", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
+    """Health check endpoint for container orchestration.
+
+    Returns:
+        JSONResponse with status: healthy
+    """
+    return JSONResponse({"status": "healthy"})
 
 
 def run_server(transport: str = "streamable-http", host: str = "0.0.0.0", port: int = 8000) -> None:
