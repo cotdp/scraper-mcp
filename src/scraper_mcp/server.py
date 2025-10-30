@@ -1490,7 +1490,7 @@ async def dashboard(request: Request) -> HTMLResponse:
                 <h2>Response</h2>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                     <span id="response-status" style="font-size: 0.875rem; color: #737373;"></span>
-                    <button onclick="copyResponse()" class="btn" style="width: auto; margin: 0; padding: 0.35rem 0.6rem; font-size: 0.7rem;">Copy JSON</button>
+                    <button onclick="copyResponse(event)" class="btn" style="width: auto; margin: 0; padding: 0.35rem 0.6rem; font-size: 0.7rem;">Copy JSON</button>
                 </div>
                 <pre id="response-json" style="background: #f5f5f5; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.75rem; line-height: 1.5; max-height: 600px; overflow-y: auto;"><code></code></pre>
             </div>
@@ -1907,7 +1907,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             }
         }
 
-        function copyResponse() {
+        function copyResponse(event) {
             const code = document.getElementById('response-json').querySelector('code').textContent;
             navigator.clipboard.writeText(code).then(() => {
                 const btn = event.target;
