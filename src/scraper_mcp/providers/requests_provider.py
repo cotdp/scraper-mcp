@@ -1,17 +1,15 @@
-"""Basic scraper provider using Python requests library with caching."""
+"""Basic scraper provider using Python requests library with disk-based caching."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from typing import Any
 from urllib.parse import urlparse
 
 import requests
-from requests_cache import CachedSession
 
-from scraper_mcp.cache import create_cached_session
+from scraper_mcp.cache_manager import get_cache_manager
 from scraper_mcp.providers.base import ScrapeResult, ScraperProvider
 
 # Configure logging
@@ -19,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class RequestsProvider(ScraperProvider):
-    """Web scraper using requests library with persistent HTTP caching and retry support."""
+    """Web scraper using requests library with persistent disk-based caching and retry support."""
 
     def __init__(
         self,
@@ -28,7 +26,6 @@ class RequestsProvider(ScraperProvider):
         retry_delay: float = 1.0,
         user_agent: str = "Mozilla/5.0 (compatible; ScraperMCP/0.1.0)",
         cache_enabled: bool = True,
-        cache_expire_after: int = 3600,
     ) -> None:
         """Initialize the requests provider with caching support.
 
@@ -38,7 +35,6 @@ class RequestsProvider(ScraperProvider):
             retry_delay: Initial delay between retries in seconds (default: 1.0)
             user_agent: User agent string to use for requests
             cache_enabled: Enable HTTP caching (default: True)
-            cache_expire_after: Cache expiration time in seconds (default: 3600)
         """
         self.timeout = timeout
         self.max_retries = max_retries
@@ -46,14 +42,15 @@ class RequestsProvider(ScraperProvider):
         self.user_agent = user_agent
         self.cache_enabled = cache_enabled
 
-        # Initialize cached session if caching is enabled
+        # Initialize standard requests session
+        self.session = requests.Session()
+
+        # Get cache manager if caching is enabled
         if cache_enabled:
-            self.session: CachedSession | requests.Session = create_cached_session(
-                expire_after=cache_expire_after
-            )
+            self.cache_manager = get_cache_manager()
             logger.info("RequestsProvider initialized with caching enabled")
         else:
-            self.session = requests.Session()
+            self.cache_manager = None
             logger.info("RequestsProvider initialized with caching disabled")
 
     def supports_url(self, url: str) -> bool:
@@ -96,6 +93,25 @@ class RequestsProvider(ScraperProvider):
         if "User-Agent" not in headers:
             headers["User-Agent"] = self.user_agent
 
+        # Check cache if enabled
+        cache_key = None
+        if self.cache_enabled and self.cache_manager:
+            # Generate cache key
+            cache_key = self.cache_manager.generate_cache_key(
+                url=url,
+                headers=headers,
+            )
+
+            # Try to get from cache
+            cached_result = self.cache_manager.get(cache_key)
+            if cached_result is not None:
+                logger.debug(f"Cache HIT for URL: {url}")
+                # Add cache metadata
+                cached_result.metadata["from_cache"] = True
+                return cached_result
+
+            logger.debug(f"Cache MISS for URL: {url}")
+
         # Retry loop with exponential backoff
         last_exception: Exception | None = None
         attempt = 0
@@ -112,35 +128,31 @@ class RequestsProvider(ScraperProvider):
                 # Raise for bad status codes
                 response.raise_for_status()
 
-                # Check if response came from cache
-                from_cache = getattr(response, "from_cache", False)
-
-                if from_cache:
-                    logger.debug(f"Cache HIT for URL: {url}")
-                else:
-                    logger.debug(f"Cache MISS for URL: {url}")
-
-                # Extract metadata including retry info and cache status
+                # Extract metadata including retry info
                 metadata = {
                     "headers": dict(response.headers),
                     "encoding": response.encoding,
                     "elapsed_ms": response.elapsed.total_seconds() * 1000,
                     "attempts": attempt + 1,
                     "retries": attempt,
-                    "from_cache": from_cache,
+                    "from_cache": False,
                 }
 
-                # Add cache expiration info if cached response
-                if from_cache and hasattr(response, "expires"):
-                    metadata["cache_expires"] = str(response.expires)
-
-                return ScrapeResult(
+                result = ScrapeResult(
                     url=response.url,
                     content=response.text,
                     status_code=response.status_code,
                     content_type=response.headers.get("Content-Type"),
                     metadata=metadata,
                 )
+
+                # Store in cache if enabled
+                if self.cache_enabled and self.cache_manager and cache_key:
+                    ttl = self.cache_manager.get_ttl_for_url(url)
+                    self.cache_manager.set(cache_key, result, expire=ttl)
+                    logger.debug(f"Cached result for URL: {url} (TTL: {ttl}s)")
+
+                return result
 
             except (
                 requests.Timeout,
