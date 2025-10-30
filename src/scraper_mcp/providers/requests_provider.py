@@ -120,6 +120,71 @@ class RequestsProvider(ScraperProvider):
         proxy_url = f"https://proxy.scrapeops.io/v1/?{urlencode(params)}"
         return proxy_url
 
+    def _should_bypass_proxy(self, url: str, no_proxy: str) -> bool:
+        """Check if URL should bypass proxy based on no_proxy setting.
+
+        Args:
+            url: URL to check
+            no_proxy: Comma-separated list of hosts to bypass
+
+        Returns:
+            True if proxy should be bypassed for this URL
+        """
+        if not no_proxy:
+            return False
+
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+
+        # Parse no_proxy list
+        bypass_hosts = [h.strip() for h in no_proxy.split(",")]
+
+        for bypass_host in bypass_hosts:
+            # Direct match
+            if hostname == bypass_host:
+                return True
+            # Suffix match (e.g., .local matches test.local)
+            if bypass_host.startswith(".") and hostname.endswith(bypass_host):
+                return True
+            # Suffix match without leading dot
+            if hostname.endswith("." + bypass_host):
+                return True
+
+        return False
+
+    def _get_proxies(self, url: str) -> dict[str, str] | None:
+        """Get proxy configuration from runtime config.
+
+        Args:
+            url: URL being requested (to check against no_proxy)
+
+        Returns:
+            Dictionary with proxy URLs or None if proxies disabled/bypassed
+        """
+        # Import here to avoid circular dependency
+        from scraper_mcp.server import get_config
+
+        proxy_enabled = get_config("proxy_enabled", False)
+        if not proxy_enabled:
+            return None
+
+        # Check no_proxy list
+        no_proxy = get_config("no_proxy", "")
+        if self._should_bypass_proxy(url, no_proxy):
+            logger.debug(f"Bypassing proxy for URL: {url} (matches no_proxy)")
+            return None
+
+        proxies = {}
+        http_proxy = get_config("http_proxy", "")
+        https_proxy = get_config("https_proxy", "")
+
+        if http_proxy:
+            proxies["http"] = http_proxy
+        if https_proxy:
+            proxies["https"] = https_proxy
+
+        return proxies if proxies else None
+
     async def scrape(self, url: str, **kwargs: Any) -> ScrapeResult:
         """Scrape content from a URL using requests with caching and retry logic.
 
@@ -147,6 +212,9 @@ class RequestsProvider(ScraperProvider):
 
         # Determine request URL (original or via ScrapeOps proxy)
         original_url = url
+
+        # Get proxy configuration from runtime config (after determining original_url)
+        proxies = self._get_proxies(original_url)
         if self.scrapeops_enabled:
             request_url = self._build_scrapeops_url(url)
             logger.debug(f"Using ScrapeOps proxy for URL: {url}")
@@ -182,7 +250,7 @@ class RequestsProvider(ScraperProvider):
                 loop = asyncio.get_event_loop()
                 response = await loop.run_in_executor(
                     None,
-                    lambda: self.session.get(request_url, headers=headers, timeout=timeout),
+                    lambda: self.session.get(request_url, headers=headers, timeout=timeout, proxies=proxies),
                 )
 
                 # Raise for bad status codes
@@ -197,6 +265,13 @@ class RequestsProvider(ScraperProvider):
                     "retries": attempt,
                     "from_cache": False,
                 }
+
+                # Add proxy metadata if used
+                if proxies:
+                    metadata["proxy_used"] = True
+                    metadata["proxy_config"] = {k: v for k, v in proxies.items()}
+                else:
+                    metadata["proxy_used"] = False
 
                 # Add ScrapeOps metadata if enabled
                 if self.scrapeops_enabled:
