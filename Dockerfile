@@ -1,6 +1,14 @@
 # Use Python 3.12 slim image as base
 FROM python:3.12-slim
 
+# Build-time proxy arguments (for package installation)
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+ARG http_proxy
+ARG https_proxy
+ARG no_proxy
+
 # Set working directory
 WORKDIR /app
 

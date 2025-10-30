@@ -3,6 +3,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Pass proxy settings at build time (for package installation)
+      args:
+        - HTTP_PROXY=${HTTP_PROXY:-}
+        - HTTPS_PROXY=${HTTPS_PROXY:-}
+        - NO_PROXY=${NO_PROXY:-}
+        - http_proxy=${http_proxy:-}
+        - https_proxy=${https_proxy:-}
+        - no_proxy=${no_proxy:-}
     container_name: scraper-mcp
     ports:
       - "8000:8000"
@@ -14,6 +22,13 @@ services:
       - PORT=8000
       # Set cache directory
       - CACHE_DIR=/app/cache
+      # Proxy settings for runtime requests (standard environment variables)
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-}
+      - http_proxy=${http_proxy:-}
+      - https_proxy=${https_proxy:-}
+      - no_proxy=${no_proxy:-}
     volumes:
       # Persistent cache volume (~1GB target)
       - cache_data:/app/cache

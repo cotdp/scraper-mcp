@@ -336,6 +336,74 @@ When running with Docker, you can configure the server using environment variabl
   - When enabled, exposes `cache_stats`, `cache_clear_expired`, and `cache_clear_all` tools
   - Disabled by default for security and simplicity
 
+## Proxy Configuration
+
+The scraper supports HTTP/HTTPS proxies through standard environment variables. This is useful when running behind a corporate firewall or when you need to route traffic through a specific proxy.
+
+### Using Proxies with Docker Compose
+
+Create a `.env` file in the project root (see `.env.example` for reference):
+
+```bash
+# HTTP proxy for non-SSL requests
+HTTP_PROXY=http://proxy.example.com:8080
+http_proxy=http://proxy.example.com:8080
+
+# HTTPS proxy for SSL requests
+HTTPS_PROXY=http://proxy.example.com:8080
+https_proxy=http://proxy.example.com:8080
+
+# Bypass proxy for specific hosts (comma-separated)
+NO_PROXY=localhost,127.0.0.1,.local
+no_proxy=localhost,127.0.0.1,.local
+```
+
+Then start the service:
+
+```bash
+docker-compose up -d
+```
+
+Docker Compose automatically reads `.env` files and passes variables to the container at both build time (for package installation) and runtime (for HTTP requests).
+
+### Using Proxies with Docker Run
+
+```bash
+docker run -p 8000:8000 \
+  -e HTTP_PROXY=http://proxy.example.com:8080 \
+  -e HTTPS_PROXY=http://proxy.example.com:8080 \
+  -e NO_PROXY=localhost,127.0.0.1,.local \
+  scraper-mcp:latest
+```
+
+### Proxy with Authentication
+
+If your proxy requires authentication, include credentials in the URL:
+
+```bash
+HTTP_PROXY=http://username:password@proxy.example.com:8080
+HTTPS_PROXY=http://username:password@proxy.example.com:8080
+```
+
+### Build-Time vs Runtime Proxies
+
+The proxy configuration works at two stages:
+
+1. **Build time**: Used when Docker installs packages (apt, uv, pip)
+2. **Runtime**: Used when the scraper makes HTTP requests
+
+Both uppercase and lowercase variable names are supported (e.g., `HTTP_PROXY` and `http_proxy`).
+
+### Verifying Proxy Configuration
+
+Check the container logs to verify proxy settings are being used:
+
+```bash
+docker-compose logs scraper-mcp
+```
+
+The `requests` library automatically respects these environment variables and will route all HTTP/HTTPS traffic through the configured proxy.
+
 ## License
 
 This project is licensed under the MIT License.
