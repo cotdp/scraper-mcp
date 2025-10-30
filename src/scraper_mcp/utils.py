@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from markdownify import markdownify
 
 
@@ -112,3 +112,57 @@ def extract_metadata(html: str) -> dict[str, str]:
             metadata[name] = content
 
     return metadata
+
+
+def filter_html_by_selector(html: str, css_selector: str) -> tuple[str, int]:
+    """Filter HTML content using CSS selector.
+
+    Args:
+        html: The HTML content to filter
+        css_selector: CSS selector to match elements
+                     (e.g., "meta", "img, video", "a[href]", ".article-content")
+
+    Returns:
+        Tuple of (filtered HTML string, count of matched elements).
+        Returns ("", 0) if no elements match.
+
+    Raises:
+        ValueError: If the CSS selector syntax is invalid
+
+    Examples:
+        >>> filter_html_by_selector(html, "meta")
+        # Returns all <meta> tags
+
+        >>> filter_html_by_selector(html, "img, video")
+        # Returns all <img> and <video> tags
+
+        >>> filter_html_by_selector(html, ".article-content")
+        # Returns elements with class="article-content"
+
+        >>> filter_html_by_selector(html, 'meta[property^="og:"]')
+        # Returns Open Graph meta tags
+    """
+    try:
+        soup = BeautifulSoup(html, "lxml")
+
+        # Select elements matching the CSS selector
+        elements = soup.select(css_selector)
+
+        # If no elements found, return empty string
+        if not elements:
+            return "", 0
+
+        # Reconstruct HTML from matched elements
+        # Create a minimal HTML structure to contain the filtered elements
+        filtered_parts = []
+        for element in elements:
+            # Convert element to string, preserving structure
+            filtered_parts.append(str(element))
+
+        # Join all matched elements
+        filtered_html = "\n".join(filtered_parts)
+
+        return filtered_html, len(elements)
+
+    except Exception as e:
+        raise ValueError(f"Invalid CSS selector '{css_selector}': {e}") from e

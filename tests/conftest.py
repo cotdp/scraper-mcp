@@ -87,3 +87,36 @@ def html_with_metadata() -> str:
     </body>
     </html>
     """
+
+
+@pytest.fixture
+def html_with_structured_content() -> str:
+    """HTML with various sections for CSS selector testing."""
+    return """
+    <html>
+        <head>
+            <title>Test Page</title>
+            <meta name="description" content="Test description">
+            <meta property="og:title" content="OG Title">
+            <meta property="og:image" content="https://example.com/image.jpg">
+        </head>
+        <body>
+            <nav class="main-nav">
+                <a href="/home">Home</a>
+                <a href="/about">About</a>
+            </nav>
+            <article class="main-content">
+                <h1>Article Title</h1>
+                <p>Article paragraph with <a href="/related">related link</a>.</p>
+                <img src="article-image.jpg" alt="Article image">
+                <video src="article-video.mp4">Video content</video>
+            </article>
+            <aside class="sidebar">
+                <a href="/ad">Advertisement</a>
+            </aside>
+            <footer>
+                <p>Footer content</p>
+            </footer>
+        </body>
+    </html>
+    """

@@ -7,6 +7,7 @@ import pytest
 from scraper_mcp.utils import (
     extract_links,
     extract_metadata,
+    filter_html_by_selector,
     html_to_markdown,
     html_to_text,
 )
@@ -190,3 +191,111 @@ class TestExtractMetadata:
 
         assert isinstance(metadata, dict)
         assert "title" not in metadata or metadata["title"] == ""
+
+
+class TestFilterHtmlBySelector:
+    """Tests for filter_html_by_selector function."""
+
+    def test_filter_single_tag(self, html_with_structured_content: str) -> None:
+        """Test filtering by single tag name."""
+        result, count = filter_html_by_selector(html_with_structured_content, "meta")
+
+        assert count == 3
+        assert "<meta" in result
+        assert result.count("<meta") == 3
+        assert "<article" not in result
+
+    def test_filter_multiple_tags(self, html_with_structured_content: str) -> None:
+        """Test filtering with comma-separated selectors."""
+        result, count = filter_html_by_selector(html_with_structured_content, "h1, p")
+
+        assert count == 3  # 1 h1 + 2 p tags
+        assert "<h1>" in result
+        assert "<p>" in result
+        assert "<meta" not in result
+
+    def test_filter_by_class(self, html_with_structured_content: str) -> None:
+        """Test filtering by class selector."""
+        result, count = filter_html_by_selector(html_with_structured_content, ".main-content")
+
+        assert count == 1
+        assert "Article Title" in result
+        assert "Footer content" not in result
+
+    def test_filter_by_attribute(self, html_with_structured_content: str) -> None:
+        """Test filtering by attribute selector."""
+        result, count = filter_html_by_selector(
+            html_with_structured_content, 'meta[property^="og:"]'
+        )
+
+        assert count == 2  # og:title and og:image
+        assert 'property="og:title"' in result
+        assert 'property="og:image"' in result
+        assert 'name="description"' not in result
+
+    def test_filter_descendant_combinator(self, html_with_structured_content: str) -> None:
+        """Test filtering with descendant combinator."""
+        result, count = filter_html_by_selector(html_with_structured_content, "article a")
+
+        assert count == 1  # Only the link inside article
+        assert 'href="/related"' in result
+        assert 'href="/home"' not in result  # nav links excluded
+        assert 'href="/about"' not in result
+
+    def test_filter_multiple_elements(self, html_with_structured_content: str) -> None:
+        """Test filtering that returns multiple elements."""
+        result, count = filter_html_by_selector(html_with_structured_content, "img, video")
+
+        assert count == 2
+        assert "<img" in result
+        assert "<video" in result
+
+    def test_filter_nav_links(self, html_with_structured_content: str) -> None:
+        """Test filtering links within navigation."""
+        result, count = filter_html_by_selector(html_with_structured_content, "nav a")
+
+        assert count == 2  # Home and About links
+        assert 'href="/home"' in result
+        assert 'href="/about"' in result
+        assert 'href="/ad"' not in result  # sidebar link excluded
+
+    def test_filter_no_matches(self, html_with_structured_content: str) -> None:
+        """Test filtering with selector that matches nothing."""
+        result, count = filter_html_by_selector(html_with_structured_content, ".nonexistent")
+
+        assert count == 0
+        assert result == ""
+
+    def test_filter_invalid_selector(self, html_with_structured_content: str) -> None:
+        """Test filtering with invalid CSS selector."""
+        with pytest.raises(ValueError, match="Invalid CSS selector"):
+            filter_html_by_selector(html_with_structured_content, "<<<invalid>>>")
+
+    def test_filter_preserves_element_structure(
+        self, html_with_structured_content: str
+    ) -> None:
+        """Test that filtered elements preserve their internal structure."""
+        result, count = filter_html_by_selector(html_with_structured_content, "article")
+
+        assert count == 1
+        assert "<h1>Article Title</h1>" in result
+        assert "<p>" in result
+        assert "<img" in result
+        assert "<video" in result
+
+    def test_filter_empty_html(self) -> None:
+        """Test filtering on empty HTML."""
+        result, count = filter_html_by_selector("<html><body></body></html>", "div")
+
+        assert count == 0
+        assert result == ""
+
+    def test_filter_complex_selector(self, html_with_structured_content: str) -> None:
+        """Test filtering with complex CSS selector."""
+        result, count = filter_html_by_selector(
+            html_with_structured_content, "article.main-content p"
+        )
+
+        assert count == 1
+        assert "Article paragraph" in result
+        assert "Footer content" not in result

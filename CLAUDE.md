@@ -90,6 +90,22 @@ All utilities in `utils.py` use BeautifulSoup with lxml parser:
 - **`html_to_text()`**: Extracts plain text with default stripping of script/style/meta/link/noscript tags
 - **`extract_links()`**: Extracts all `<a>` tags with URL resolution using `urllib.parse.urljoin()`
 - **`extract_metadata()`**: Extracts `<title>` and all `<meta>` tags (name/property attributes)
+- **`filter_html_by_selector()`**: Filters HTML using CSS selectors via BeautifulSoup's `.select()` method, returns tuple of (filtered_html, element_count)
+
+### CSS Selector Filtering
+Optional `css_selector` parameter added to all four tools for targeted content extraction:
+
+- **Purpose**: "What to KEEP" filtering (inclusive) - complementary to `strip_tags` (exclusive)
+- **Implementation**: Applied BEFORE any other processing (markdown/text conversion, link extraction)
+- **Selector Support**: Full CSS selector syntax via Soup Sieve (tags, classes, IDs, attributes, combinators, pseudo-classes)
+- **Processing Order**:
+  1. Scrape HTML from provider
+  2. Apply CSS selector filter (if provided)
+  3. Apply strip_tags (if provided)
+  4. Convert to markdown/text or extract links
+- **Metadata**: When selector provided, adds `css_selector_applied` and `elements_matched` to response metadata
+- **Batch Support**: Works in both single-URL and batch modes
+- **Empty Results**: Returns empty string with count=0 if no elements match (graceful degradation)
 
 ### Retry Logic
 All scraping operations implement exponential backoff:

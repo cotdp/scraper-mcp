@@ -611,6 +611,204 @@ class TestBatchExtractLinks:
                 assert len(item.data.links) == 5
 
 
+class TestCssSelectorFiltering:
+    """Tests for CSS selector filtering across all tools."""
+
+    @pytest.mark.asyncio
+    async def test_scrape_url_with_css_selector(
+        self, html_with_structured_content: str
+    ) -> None:
+        """Test scrape_url with CSS selector filtering."""
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=html_with_structured_content,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_url("https://example.com", css_selector="meta")
+
+            # Should only contain meta tags
+            assert "<meta" in result.content
+            assert "<article" not in result.content
+            # Should have filter metadata
+            assert "css_selector_applied" in result.metadata
+            assert result.metadata["css_selector_applied"] == "meta"
+            assert result.metadata["elements_matched"] == 3
+
+    @pytest.mark.asyncio
+    async def test_scrape_url_markdown_with_css_selector(
+        self, html_with_structured_content: str
+    ) -> None:
+        """Test markdown conversion with CSS selector."""
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=html_with_structured_content,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_url_markdown(
+                "https://example.com", css_selector=".main-content"
+            )
+
+            # Should only contain article content in markdown
+            assert "Article Title" in result.content
+            assert "Footer content" not in result.content
+            # Should have filter metadata
+            assert "css_selector_applied" in result.metadata
+            assert result.metadata["css_selector_applied"] == ".main-content"
+
+    @pytest.mark.asyncio
+    async def test_scrape_url_text_with_css_selector(
+        self, html_with_structured_content: str
+    ) -> None:
+        """Test text extraction with CSS selector."""
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=html_with_structured_content,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_url_text(
+                "https://example.com", css_selector="article"
+            )
+
+            # Should only contain article text
+            assert "Article Title" in result.content
+            assert "Article paragraph" in result.content
+            assert "Footer content" not in result.content
+
+    @pytest.mark.asyncio
+    async def test_extract_links_with_css_selector(
+        self, html_with_structured_content: str
+    ) -> None:
+        """Test link extraction with CSS selector scoping."""
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=html_with_structured_content,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_extract_links(
+                "https://example.com", css_selector="nav"
+            )
+
+            # Should only contain nav links
+            assert result.count == 2  # Home and About links only
+            assert any(l["text"] == "Home" for l in result.links)
+            assert any(l["text"] == "About" for l in result.links)
+            assert not any(l["text"] == "Advertisement" for l in result.links)
+
+    @pytest.mark.asyncio
+    async def test_css_selector_with_multiple_elements(
+        self, html_with_structured_content: str
+    ) -> None:
+        """Test CSS selector that matches multiple elements."""
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=html_with_structured_content,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_url("https://example.com", css_selector="img, video")
+
+            # Should contain both img and video tags
+            assert "<img" in result.content
+            assert "<video" in result.content
+            assert result.metadata["elements_matched"] == 2
+
+    @pytest.mark.asyncio
+    async def test_css_selector_no_matches(
+        self, html_with_structured_content: str
+    ) -> None:
+        """Test CSS selector that matches nothing."""
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=html_with_structured_content,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            result = await scrape_url(
+                "https://example.com", css_selector=".nonexistent"
+            )
+
+            # Should return empty content
+            assert result.content == ""
+            assert result.metadata["elements_matched"] == 0
+
+    @pytest.mark.asyncio
+    async def test_css_selector_with_strip_tags(
+        self, html_with_structured_content: str
+    ) -> None:
+        """Test CSS selector combined with strip_tags."""
+        mock_result = ScrapeResult(
+            url="https://example.com",
+            content=html_with_structured_content,
+            status_code=200,
+            content_type="text/html",
+            metadata={},
+        )
+
+        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.scrape = AsyncMock(return_value=mock_result)
+            mock_get_provider.return_value = mock_provider
+
+            # First filter to article, then strip img tags
+            result = await scrape_url_markdown(
+                "https://example.com",
+                css_selector="article",
+                strip_tags=["img", "video"],
+            )
+
+            # Should have article content but no images/videos
+            assert "Article Title" in result.content
+            assert "Article paragraph" in result.content
+            # Images and videos should be stripped from markdown
+            assert "![" not in result.content or "article-image.jpg" not in result.content
+
+
 class TestCacheManagementTools:
     """Tests for cache management tools."""
 
