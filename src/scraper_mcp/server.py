@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -17,6 +18,10 @@ from scraper_mcp.utils import (
     html_to_markdown,
     html_to_text,
 )
+
+# Configuration: Enable cache management tools via environment variable
+# Set ENABLE_CACHE_TOOLS=true to expose cache_stats, cache_clear_expired, and cache_clear_all
+ENABLE_CACHE_TOOLS = os.getenv("ENABLE_CACHE_TOOLS", "false").lower() in ("true", "1", "yes")
 
 # Create MCP server
 mcp = FastMCP(
@@ -91,7 +96,7 @@ class BatchLinksResponse(BaseModel):
 _default_provider: ScraperProvider = RequestsProvider()
 
 # Default concurrency limit for batch operations
-DEFAULT_CONCURRENCY = 5
+DEFAULT_CONCURRENCY = 8
 
 
 def get_provider(url: str) -> ScraperProvider:
@@ -528,7 +533,6 @@ async def scrape_url(
     urls: str | list[str],
     timeout: int = 30,
     max_retries: int = 3,
-    concurrency: int = DEFAULT_CONCURRENCY,
     css_selector: str | None = None,
 ) -> ScrapeResponse | BatchScrapeResponse:
     """Scrape raw HTML content from one or more URLs.
@@ -537,7 +541,6 @@ async def scrape_url(
         urls: Single URL string or list of URLs to scrape (must be http:// or https://)
         timeout: Request timeout in seconds (default: 30)
         max_retries: Maximum number of retry attempts on failure (default: 3)
-        concurrency: Maximum concurrent requests for batch operations (default: 5)
         css_selector: Optional CSS selector to filter HTML elements
                      (e.g., "meta", "img, video", ".article-content")
 
@@ -571,7 +574,7 @@ async def scrape_url(
         )
     else:
         # Multiple URLs - use batch handler
-        return await batch_scrape_urls(urls, timeout, max_retries, concurrency, css_selector)
+        return await batch_scrape_urls(urls, timeout, max_retries, DEFAULT_CONCURRENCY, css_selector)
 
 
 @mcp.tool()
@@ -580,7 +583,6 @@ async def scrape_url_markdown(
     timeout: int = 30,
     max_retries: int = 3,
     strip_tags: list[str] | None = None,
-    concurrency: int = DEFAULT_CONCURRENCY,
     css_selector: str | None = None,
 ) -> ScrapeResponse | BatchScrapeResponse:
     """Scrape one or more URLs and convert the content to markdown format.
@@ -590,7 +592,6 @@ async def scrape_url_markdown(
         timeout: Request timeout in seconds (default: 30)
         max_retries: Maximum number of retry attempts on failure (default: 3)
         strip_tags: List of HTML tags to strip (e.g., ['script', 'style'])
-        concurrency: Maximum concurrent requests for batch operations (default: 5)
         css_selector: Optional CSS selector to filter HTML elements before conversion
                      (e.g., ".article-content", "article p")
 
@@ -741,44 +742,45 @@ async def scrape_extract_links(
         return await batch_extract_links(urls, timeout, max_retries, concurrency, css_selector)
 
 
-@mcp.tool()
-async def cache_stats() -> dict[str, int | float]:
-    """Get HTTP cache statistics.
+# Cache management tools (optional - controlled by ENABLE_CACHE_TOOLS environment variable)
+if ENABLE_CACHE_TOOLS:
 
-    Returns:
-        Dictionary with cache statistics including size, number of entries, and location
-    """
-    return get_cache_stats()
+    @mcp.tool()
+    async def cache_stats() -> dict[str, int | float]:
+        """Get HTTP cache statistics.
 
+        Returns:
+            Dictionary with cache statistics including size, number of entries, and location
+        """
+        return get_cache_stats()
 
-@mcp.tool()
-async def cache_clear_expired() -> dict[str, int]:
-    """Clear expired entries from HTTP cache.
+    @mcp.tool()
+    async def cache_clear_expired() -> dict[str, int]:
+        """Clear expired entries from HTTP cache.
 
-    Returns:
-        Dictionary with the number of expired entries removed
-    """
-    removed = clear_expired_cache()
-    return {
-        "status": "success",
-        "expired_entries_removed": removed,
-    }
+        Returns:
+            Dictionary with the number of expired entries removed
+        """
+        removed = clear_expired_cache()
+        return {
+            "status": "success",
+            "expired_entries_removed": removed,
+        }
 
+    @mcp.tool()
+    async def cache_clear_all() -> dict[str, str]:
+        """Clear all entries from HTTP cache.
 
-@mcp.tool()
-async def cache_clear_all() -> dict[str, str]:
-    """Clear all entries from HTTP cache.
+        WARNING: This will remove all cached responses.
 
-    WARNING: This will remove all cached responses.
-
-    Returns:
-        Dictionary with operation status
-    """
-    clear_all_cache()
-    return {
-        "status": "success",
-        "message": "All cache entries cleared",
-    }
+        Returns:
+            Dictionary with operation status
+        """
+        clear_all_cache()
+        return {
+            "status": "success",
+            "message": "All cache entries cleared",
+        }
 
 
 def run_server(transport: str = "streamable-http", host: str = "0.0.0.0", port: int = 8000) -> None:

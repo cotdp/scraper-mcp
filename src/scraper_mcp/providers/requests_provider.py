@@ -24,7 +24,7 @@ class RequestsProvider(ScraperProvider):
         timeout: int = 30,
         max_retries: int = 3,
         retry_delay: float = 1.0,
-        user_agent: str = "Mozilla/5.0 (compatible; ScraperMCP/0.1.0)",
+        user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         cache_enabled: bool = True,
     ) -> None:
         """Initialize the requests provider with caching support.
@@ -33,7 +33,7 @@ class RequestsProvider(ScraperProvider):
             timeout: Request timeout in seconds (default: 30)
             max_retries: Maximum number of retry attempts (default: 3)
             retry_delay: Initial delay between retries in seconds (default: 1.0)
-            user_agent: User agent string to use for requests
+            user_agent: User agent string (default: Chrome 131 on macOS)
             cache_enabled: Enable HTTP caching (default: True)
         """
         self.timeout = timeout
