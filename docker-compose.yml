@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  scraper-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scraper-mcp
+    ports:
+      - "8000:8000"
+    environment:
+      # Set transport type (streamable-http or sse)
+      - TRANSPORT=streamable-http
+      # Set host and port
+      - HOST=0.0.0.0
+      - PORT=8000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge
