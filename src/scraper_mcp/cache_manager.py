@@ -242,7 +242,11 @@ class CacheManager:
             hits, misses = self.cache.stats(enable=True)
             hit_rate = hits / (hits + misses) if (hits + misses) > 0 else 0.0
 
+            # Get entry count
+            entry_count = len(self.cache)
+
             stats = {
+                "entry_count": entry_count,
                 "size_bytes": volume,
                 "size_mb": round(volume_mb, 2),
                 "size_limit_bytes": self.size_limit,
