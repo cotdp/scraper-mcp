@@ -1029,6 +1029,22 @@ async def dashboard(request: Request) -> HTMLResponse:
                     <span class="stat-value" id="avg-retries">-</span>
                 </div>
             </div>
+
+            <div class="card">
+                <h2>Cache Status</h2>
+                <div class="stat">
+                    <span class="stat-label">Entries</span>
+                    <span class="stat-value" id="cache-entries">-</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Size</span>
+                    <span class="stat-value" id="cache-size">-</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Hit Rate</span>
+                    <span class="stat-value" id="cache-hit-rate">-</span>
+                </div>
+            </div>
         </div>
 
         <div class="card">
@@ -1042,22 +1058,6 @@ async def dashboard(request: Request) -> HTMLResponse:
             <h2>Recent Errors (Last 10)</h2>
             <div class="request-list" id="recent-errors">
                 <p style="text-align: center; color: #737373; padding: 2rem;">No errors</p>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Cache Status</h2>
-            <div class="stat">
-                <span class="stat-label">Entries</span>
-                <span class="stat-value" id="cache-entries">-</span>
-            </div>
-            <div class="stat">
-                <span class="stat-label">Size</span>
-                <span class="stat-value" id="cache-size">-</span>
-            </div>
-            <div class="stat">
-                <span class="stat-label">Hit Rate</span>
-                <span class="stat-value" id="cache-hit-rate">-</span>
             </div>
         </div>
 
@@ -1202,3 +1202,4 @@ def run_server(transport: str = "streamable-http", host: str = "0.0.0.0", port: 
 
 if __name__ == "__main__":
     run_server()
+# Test comment

@@ -23,14 +23,24 @@ RUN apt-get update && \
 # Install uv for faster package management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy dependency files and README (required for package build)
+# Copy dependency files only (for layer caching)
 COPY pyproject.toml README.md ./
 
-# Copy application code (needed before editable install)
+# Install dependencies first (cached layer - only invalidated when pyproject.toml changes)
+# We install dependencies without the package itself to maximize cache hits
+RUN uv pip install --system \
+    mcp[cli] \
+    requests \
+    beautifulsoup4 \
+    markdownify \
+    lxml \
+    diskcache
+
+# Copy application code last (invalidates fewer layers on source changes)
 COPY src/ ./src/
 
-# Install package and dependencies using uv
-RUN uv pip install --system -e .
+# Install the package itself (fast, deps already cached)
+RUN uv pip install --system --no-deps .
 
 # Create cache directory with proper permissions
 RUN mkdir -p /app/cache && chmod 777 /app/cache
