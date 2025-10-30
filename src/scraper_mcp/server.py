@@ -1456,9 +1456,9 @@ async def dashboard(request: Request) -> HTMLResponse:
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="default_max_retries">Max Retries</label>
-                            <input type="number" id="default_max_retries" class="form-input" min="0" value="3">
-                            <small class="form-help">Max retry attempts on failure</small>
+                            <label class="form-label" for="cache_ttl_default">Cache TTL - Default</label>
+                            <input type="number" id="cache_ttl_default" class="form-input" min="0" value="3600">
+                            <small class="form-help">Default cache (1h = 3600s)</small>
                         </div>
 
                         <div class="form-group">
@@ -1468,15 +1468,15 @@ async def dashboard(request: Request) -> HTMLResponse:
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="cache_ttl_default">Cache TTL - Default</label>
-                            <input type="number" id="cache_ttl_default" class="form-input" min="0" value="3600">
-                            <small class="form-help">Default cache (1h = 3600s)</small>
-                        </div>
-
-                        <div class="form-group">
                             <label class="form-label" for="cache_ttl_realtime">Cache TTL - Realtime</label>
                             <input type="number" id="cache_ttl_realtime" class="form-input" min="0" value="300">
                             <small class="form-help">API/live data cache (5m = 300s)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="default_max_retries">Max Retries</label>
+                            <input type="number" id="default_max_retries" class="form-input" min="0" value="3">
+                            <small class="form-help">Max retry attempts on failure</small>
                         </div>
 
                         <div class="form-group">
