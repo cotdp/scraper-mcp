@@ -127,7 +127,7 @@ class ServerMetrics:
                     "attempts": r.attempts,
                     "error": r.error,
                 }
-                for r in list(self.recent_requests)[-10:]  # Last 10 requests
+                for r in list(self.recent_requests)[-10:][::-1]  # Last 10 requests, newest first
             ],
             "recent_errors": [
                 {
@@ -137,7 +137,7 @@ class ServerMetrics:
                     "attempts": r.attempts,
                     "error": r.error,
                 }
-                for r in list(self.recent_errors)[-10:]  # Last 10 errors
+                for r in list(self.recent_errors)[-10:][::-1]  # Last 10 errors, newest first
             ],
         }
 
