@@ -1456,15 +1456,15 @@ async def dashboard(request: Request) -> HTMLResponse:
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="default_timeout">Default Timeout</label>
-                            <input type="number" id="default_timeout" class="form-input" min="1" value="30">
-                            <small class="form-help">Request timeout in seconds</small>
-                        </div>
-
-                        <div class="form-group">
                             <label class="form-label" for="default_max_retries">Max Retries</label>
                             <input type="number" id="default_max_retries" class="form-input" min="0" value="3">
                             <small class="form-help">Max retry attempts on failure</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="default_timeout">Default Timeout</label>
+                            <input type="number" id="default_timeout" class="form-input" min="1" value="30">
+                            <small class="form-help">Request timeout in seconds</small>
                         </div>
 
                         <div class="form-group">
@@ -1474,15 +1474,15 @@ async def dashboard(request: Request) -> HTMLResponse:
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="cache_ttl_static">Cache TTL - Static</label>
-                            <input type="number" id="cache_ttl_static" class="form-input" min="0" value="86400">
-                            <small class="form-help">Static/CDN cache (24h = 86400s)</small>
-                        </div>
-
-                        <div class="form-group">
                             <label class="form-label" for="cache_ttl_realtime">Cache TTL - Realtime</label>
                             <input type="number" id="cache_ttl_realtime" class="form-input" min="0" value="300">
                             <small class="form-help">API/live data cache (5m = 300s)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="cache_ttl_static">Cache TTL - Static</label>
+                            <input type="number" id="cache_ttl_static" class="form-input" min="0" value="86400">
+                            <small class="form-help">Static/CDN cache (24h = 86400s)</small>
                         </div>
                     </div>
 
