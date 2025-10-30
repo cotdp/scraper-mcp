@@ -815,7 +815,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background: #fafafa;
             min-height: 100vh;
-            padding: 3rem 2rem;
+            padding: 2rem 1.5rem;
             color: #1a1a1a;
         }
         .container {
@@ -823,7 +823,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             margin: 0 auto;
         }
         header {
-            margin-bottom: 3rem;
+            margin-bottom: 2rem;
         }
         h1 {
             font-size: 1.5rem;
@@ -840,16 +840,16 @@ async def dashboard(request: Request) -> HTMLResponse:
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1rem;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
         }
         .card {
             background: white;
             border: 1px solid #e5e5e5;
             border-radius: 8px;
-            padding: 1.5rem;
+            padding: 1rem;
             transition: border-color 0.2s ease;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
         .card:hover {
             border-color: #d4d4d4;
@@ -861,7 +861,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             font-size: 0.75rem;
             font-weight: 500;
             color: #737373;
-            margin-bottom: 1.25rem;
+            margin-bottom: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
@@ -888,7 +888,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             display: flex;
             justify-content: space-between;
             align-items: baseline;
-            padding: 0.875rem 0;
+            padding: 0.625rem 0;
             border-bottom: 1px solid #f5f5f5;
         }
         .stat:last-child {
@@ -910,10 +910,10 @@ async def dashboard(request: Request) -> HTMLResponse:
             font-variant-numeric: tabular-nums;
         }
         .big-stat {
-            padding: 1.5rem 0;
+            padding: 1rem 0;
         }
         .big-stat-value {
-            font-size: 2.5rem;
+            font-size: 2rem;
             font-weight: 600;
             color: #1a1a1a;
             line-height: 1;
@@ -922,7 +922,7 @@ async def dashboard(request: Request) -> HTMLResponse:
         }
         .big-stat-label {
             color: #737373;
-            margin-top: 0.75rem;
+            margin-top: 0.5rem;
             font-size: 0.875rem;
             font-weight: 400;
         }
@@ -986,7 +986,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             text-align: center;
             color: #a3a3a3;
             font-size: 0.75rem;
-            margin-top: 2rem;
+            margin-top: 1.5rem;
             font-variant-numeric: tabular-nums;
         }
         .loading {
@@ -1001,7 +1001,7 @@ async def dashboard(request: Request) -> HTMLResponse:
         }
         .btn {
             display: inline-block;
-            padding: 0.5rem 1rem;
+            padding: 0.5rem 0.75rem;
             font-size: 0.75rem;
             font-weight: 500;
             text-transform: uppercase;
@@ -1012,7 +1012,7 @@ async def dashboard(request: Request) -> HTMLResponse:
             color: #1a1a1a;
             cursor: pointer;
             transition: all 0.2s ease;
-            margin-top: 1rem;
+            margin-top: 0.75rem;
             width: 100%;
         }
         .btn:hover {
