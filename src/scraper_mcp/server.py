@@ -1330,6 +1330,7 @@ async def dashboard(request: Request) -> HTMLResponse:
 
         <div class="tabs">
             <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
+            <button class="tab" onclick="switchTab('playground')">Playground</button>
             <button class="tab" onclick="switchTab('config')">Config</button>
         </div>
 
@@ -1438,6 +1439,61 @@ async def dashboard(request: Request) -> HTMLResponse:
         <div class="refresh-indicator" id="refresh-indicator">
             Auto-refresh: <span id="countdown">10</span>s
         </div>
+        </div>
+
+        <div id="playground-tab" class="tab-content">
+            <div class="card">
+                <h2>API Playground</h2>
+                <form id="playground-form">
+                    <div class="form-group">
+                        <label class="form-label" for="test-url">URL</label>
+                        <input type="text" id="test-url" class="form-input" placeholder="https://example.com" required>
+                        <small class="form-help">Enter a URL to scrape</small>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="test-tool">Tool</label>
+                            <select id="test-tool" class="form-input">
+                                <option value="scrape_url">scrape_url (HTML)</option>
+                                <option value="scrape_url_markdown" selected>scrape_url_markdown</option>
+                                <option value="scrape_url_text">scrape_url_text</option>
+                                <option value="scrape_extract_links">scrape_extract_links</option>
+                            </select>
+                            <small class="form-help">Select scraping tool</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="test-timeout">Timeout (seconds)</label>
+                            <input type="number" id="test-timeout" class="form-input" min="1" value="30">
+                            <small class="form-help">Request timeout</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="test-retries">Max Retries</label>
+                            <input type="number" id="test-retries" class="form-input" min="0" value="3">
+                            <small class="form-help">Max retry attempts</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="test-selector">CSS Selector (optional)</label>
+                            <input type="text" id="test-selector" class="form-input" placeholder=".article-content">
+                            <small class="form-help">Filter HTML elements</small>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn">Run Tool</button>
+                </form>
+            </div>
+
+            <div class="card" id="playground-response" style="display: none;">
+                <h2>Response</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span id="response-status" style="font-size: 0.875rem; color: #737373;"></span>
+                    <button onclick="copyResponse()" class="btn" style="width: auto; margin: 0; padding: 0.35rem 0.6rem; font-size: 0.7rem;">Copy JSON</button>
+                </div>
+                <pre id="response-json" style="background: #f5f5f5; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.75rem; line-height: 1.5; max-height: 600px; overflow-y: auto;"><code></code></pre>
+            </div>
         </div>
 
         <div id="config-tab" class="tab-content">
@@ -1762,6 +1818,107 @@ async def dashboard(request: Request) -> HTMLResponse:
             }
         }
 
+        async function runPlaygroundTool(event) {
+            event.preventDefault();
+
+            const url = document.getElementById('test-url').value;
+            const tool = document.getElementById('test-tool').value;
+            const timeout = parseInt(document.getElementById('test-timeout').value);
+            const maxRetries = parseInt(document.getElementById('test-retries').value);
+            const cssSelector = document.getElementById('test-selector').value;
+
+            const responseCard = document.getElementById('playground-response');
+            const responseStatus = document.getElementById('response-status');
+            const responseJson = document.getElementById('response-json');
+
+            // Show loading state
+            responseCard.style.display = 'block';
+            responseStatus.textContent = 'Loading...';
+            responseJson.querySelector('code').textContent = '';
+
+            try {
+                const payload = {
+                    jsonrpc: "2.0",
+                    id: 1,
+                    method: "tools/call",
+                    params: {
+                        name: tool,
+                        arguments: {
+                            urls: [url],
+                            timeout: timeout,
+                            max_retries: maxRetries
+                        }
+                    }
+                };
+
+                // Add optional css_selector
+                if (cssSelector) {
+                    payload.params.arguments.css_selector = cssSelector;
+                }
+
+                const startTime = Date.now();
+                const response = await fetch('/mcp/v1/tools/call', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const elapsed = Date.now() - startTime;
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const text = await response.text();
+
+                // Parse SSE response - last data event has the result
+                const lines = text.trim().split('\n');
+                let result = null;
+
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].startsWith('data: ')) {
+                        const data = lines[i].substring(6);
+                        if (data !== '[DONE]') {
+                            try {
+                                result = JSON.parse(data);
+                            } catch (e) {
+                                // Skip invalid JSON
+                            }
+                        }
+                    }
+                }
+
+                if (result) {
+                    responseStatus.textContent = `Completed in ${elapsed}ms`;
+                    responseJson.querySelector('code').textContent = JSON.stringify(result, null, 2);
+                } else {
+                    throw new Error('No valid response received');
+                }
+            } catch (error) {
+                responseStatus.textContent = 'Error';
+                responseStatus.style.color = '#ef4444';
+                responseJson.querySelector('code').textContent = JSON.stringify({
+                    error: error.message,
+                    details: error.toString()
+                }, null, 2);
+            }
+        }
+
+        function copyResponse() {
+            const code = document.getElementById('response-json').querySelector('code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        }
+
         // Initial load
         fetchStats();
         startCountdown();
@@ -1771,6 +1928,9 @@ async def dashboard(request: Request) -> HTMLResponse:
 
         // Setup proxy checkbox handler
         document.getElementById('proxy_enabled').addEventListener('change', toggleProxyInputs);
+
+        // Setup playground form handler
+        document.getElementById('playground-form').addEventListener('submit', runPlaygroundTool);
     </script>
 </body>
 </html>
