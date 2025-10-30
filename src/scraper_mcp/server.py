@@ -116,7 +116,7 @@ _runtime_config: dict[str, Any] = {
     "http_proxy": "",
     "https_proxy": "",
     "no_proxy": "",
-    "verify_ssl": True,  # SSL certificate verification (disable for self-signed certs)
+    "verify_ssl": False,  # SSL certificate verification (disabled by default)
 }
 
 
@@ -875,7 +875,7 @@ async def api_config_get(request: Request) -> JSONResponse:
             "http_proxy": "",
             "https_proxy": "",
             "no_proxy": "",
-            "verify_ssl": True,
+            "verify_ssl": False,
         },
         "note": "Changes are not persisted and will reset on server restart"
     })
@@ -1573,11 +1573,11 @@ async def dashboard(request: Request) -> HTMLResponse:
 
                     <h2 style="margin-top: 1.5rem;">Security Settings</h2>
                     <div class="checkbox-group">
-                        <input type="checkbox" id="verify_ssl" checked>
+                        <input type="checkbox" id="verify_ssl">
                         <label for="verify_ssl">Verify SSL Certificates</label>
                     </div>
                     <div class="alert alert-warning" style="margin-top: 0.75rem;">
-                        ⚠️ Disabling SSL verification exposes you to man-in-the-middle attacks. Only disable for development/testing with self-signed certificates.
+                        ⚠️ SSL verification is disabled by default. Enable it for production use or when not using self-signed certificates.
                     </div>
 
                     <button type="submit" class="btn">Apply Changes</button>
