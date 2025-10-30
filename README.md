@@ -33,7 +33,7 @@ The server will be available at `http://localhost:8000/mcp`
 Scrape raw HTML content from a URL.
 
 **Parameters:**
-- `url` (string, required): The URL to scrape (http:// or https://)
+- `urls` (string or list, required): Single URL or list of URLs to scrape (http:// or https://)
 - `timeout` (integer, optional): Request timeout in seconds (default: 30)
 - `max_retries` (integer, optional): Maximum retry attempts on failure (default: 3)
 - `css_selector` (string, optional): CSS selector to filter HTML elements (e.g., "meta", "img, video", ".article-content")
@@ -56,7 +56,7 @@ Scrape raw HTML content from a URL.
 Scrape a URL and convert the content to markdown format.
 
 **Parameters:**
-- `url` (string, required): The URL to scrape
+- `urls` (string or list, required): Single URL or list of URLs to scrape (http:// or https://)
 - `timeout` (integer, optional): Request timeout in seconds (default: 30)
 - `max_retries` (integer, optional): Maximum retry attempts on failure (default: 3)
 - `strip_tags` (array, optional): List of HTML tags to strip (e.g., ['script', 'style'])
@@ -73,7 +73,7 @@ Scrape a URL and convert the content to markdown format.
 Scrape a URL and extract plain text content.
 
 **Parameters:**
-- `url` (string, required): The URL to scrape
+- `urls` (string or list, required): Single URL or list of URLs to scrape (http:// or https://)
 - `timeout` (integer, optional): Request timeout in seconds (default: 30)
 - `max_retries` (integer, optional): Maximum retry attempts on failure (default: 3)
 - `strip_tags` (array, optional): HTML tags to strip (default: script, style, meta, link, noscript)
@@ -90,7 +90,7 @@ Scrape a URL and extract plain text content.
 Scrape a URL and extract all links.
 
 **Parameters:**
-- `url` (string, required): The URL to scrape
+- `urls` (string or list, required): Single URL or list of URLs to scrape (http:// or https://)
 - `timeout` (integer, optional): Request timeout in seconds (default: 30)
 - `max_retries` (integer, optional): Maximum retry attempts on failure (default: 3)
 - `css_selector` (string, optional): CSS selector to scope link extraction to specific sections (e.g., "nav", "article.main-content")
@@ -332,6 +332,9 @@ When running with Docker, you can configure the server using environment variabl
 - `TRANSPORT`: Transport type (`streamable-http` or `sse`, default: `streamable-http`)
 - `HOST`: Host to bind to (default: `0.0.0.0`)
 - `PORT`: Port to bind to (default: `8000`)
+- `ENABLE_CACHE_TOOLS`: Enable cache management tools (`true`, `1`, or `yes` to enable, default: `false`)
+  - When enabled, exposes `cache_stats`, `cache_clear_expired`, and `cache_clear_all` tools
+  - Disabled by default for security and simplicity
 
 ## License
 

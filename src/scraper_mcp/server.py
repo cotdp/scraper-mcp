@@ -632,7 +632,7 @@ async def scrape_url_markdown(
     else:
         # Multiple URLs - use batch handler
         return await batch_scrape_urls_markdown(
-            urls, timeout, max_retries, strip_tags, concurrency, css_selector
+            urls, timeout, max_retries, strip_tags, DEFAULT_CONCURRENCY, css_selector
         )
 
 
@@ -642,7 +642,6 @@ async def scrape_url_text(
     timeout: int = 30,
     max_retries: int = 3,
     strip_tags: list[str] | None = None,
-    concurrency: int = DEFAULT_CONCURRENCY,
     css_selector: str | None = None,
 ) -> ScrapeResponse | BatchScrapeResponse:
     """Scrape one or more URLs and extract plain text content.
@@ -652,7 +651,6 @@ async def scrape_url_text(
         timeout: Request timeout in seconds (default: 30)
         max_retries: Maximum number of retry attempts on failure (default: 3)
         strip_tags: List of HTML tags to strip (default: script, style, meta, link, noscript)
-        concurrency: Maximum concurrent requests for batch operations (default: 5)
         css_selector: Optional CSS selector to filter HTML elements before text extraction
                      (e.g., "#main-content", "article.post")
 
@@ -693,7 +691,7 @@ async def scrape_url_text(
     else:
         # Multiple URLs - use batch handler
         return await batch_scrape_urls_text(
-            urls, timeout, max_retries, strip_tags, concurrency, css_selector
+            urls, timeout, max_retries, strip_tags, DEFAULT_CONCURRENCY, css_selector
         )
 
 
@@ -702,7 +700,6 @@ async def scrape_extract_links(
     urls: str | list[str],
     timeout: int = 30,
     max_retries: int = 3,
-    concurrency: int = DEFAULT_CONCURRENCY,
     css_selector: str | None = None,
 ) -> LinksResponse | BatchLinksResponse:
     """Scrape one or more URLs and extract all links.
@@ -711,7 +708,6 @@ async def scrape_extract_links(
         urls: Single URL string or list of URLs to scrape (must be http:// or https://)
         timeout: Request timeout in seconds (default: 30)
         max_retries: Maximum number of retry attempts on failure (default: 3)
-        concurrency: Maximum concurrent requests for batch operations (default: 5)
         css_selector: Optional CSS selector to scope link extraction to specific sections
                      (e.g., "nav", "article.main-content")
 
@@ -739,7 +735,7 @@ async def scrape_extract_links(
         )
     else:
         # Multiple URLs - use batch handler
-        return await batch_extract_links(urls, timeout, max_retries, concurrency, css_selector)
+        return await batch_extract_links(urls, timeout, max_retries, DEFAULT_CONCURRENCY, css_selector)
 
 
 # Cache management tools (optional - controlled by ENABLE_CACHE_TOOLS environment variable)
