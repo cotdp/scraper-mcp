@@ -119,6 +119,28 @@ _runtime_config: dict[str, Any] = {
     "verify_ssl": False,  # SSL certificate verification (disabled by default)
 }
 
+# Initialize proxy settings from environment variables if present
+_http_proxy_env = os.getenv("HTTP_PROXY") or os.getenv("http_proxy")
+_https_proxy_env = os.getenv("HTTPS_PROXY") or os.getenv("https_proxy")
+_no_proxy_env = os.getenv("NO_PROXY") or os.getenv("no_proxy")
+
+if _http_proxy_env or _https_proxy_env:
+    _runtime_config["proxy_enabled"] = True
+    if _http_proxy_env:
+        _runtime_config["http_proxy"] = _http_proxy_env
+    if _https_proxy_env:
+        _runtime_config["https_proxy"] = _https_proxy_env
+    if _no_proxy_env:
+        _runtime_config["no_proxy"] = _no_proxy_env
+
+    # Log proxy initialization
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f"Proxy enabled from environment variables: "
+        f"HTTP_PROXY={_http_proxy_env}, HTTPS_PROXY={_https_proxy_env}, NO_PROXY={_no_proxy_env}"
+    )
+
 
 def get_config(key: str, default: Any = None) -> Any:
     """Get a configuration value with runtime override support.
