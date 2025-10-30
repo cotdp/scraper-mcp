@@ -104,6 +104,29 @@ _default_provider: ScraperProvider = RequestsProvider()
 # Default concurrency limit for batch operations
 DEFAULT_CONCURRENCY = 8
 
+# Runtime configuration overrides (not persisted)
+_runtime_config: dict[str, Any] = {
+    "concurrency": DEFAULT_CONCURRENCY,
+    "default_timeout": 30,
+    "default_max_retries": 3,
+    "cache_ttl_default": 3600,
+    "cache_ttl_static": 86400,
+    "cache_ttl_realtime": 300,
+}
+
+
+def get_config(key: str, default: Any = None) -> Any:
+    """Get a configuration value with runtime override support.
+
+    Args:
+        key: Configuration key
+        default: Default value if key not found
+
+    Returns:
+        Configuration value
+    """
+    return _runtime_config.get(key, default)
+
 
 def get_provider(url: str) -> ScraperProvider:
     """Get the appropriate provider for a URL.
@@ -827,6 +850,78 @@ async def api_cache_clear(request: Request) -> JSONResponse:
         )
 
 
+@mcp.custom_route("/api/config", methods=["GET"])
+async def api_config_get(request: Request) -> JSONResponse:
+    """Get current runtime configuration.
+
+    Returns:
+        JSONResponse with current config values
+    """
+    return JSONResponse({
+        "config": _runtime_config,
+        "defaults": {
+            "concurrency": DEFAULT_CONCURRENCY,
+            "default_timeout": 30,
+            "default_max_retries": 3,
+            "cache_ttl_default": 3600,
+            "cache_ttl_static": 86400,
+            "cache_ttl_realtime": 300,
+        },
+        "note": "Changes are not persisted and will reset on server restart"
+    })
+
+
+@mcp.custom_route("/api/config", methods=["POST"])
+async def api_config_update(request: Request) -> JSONResponse:
+    """Update runtime configuration.
+
+    Returns:
+        JSONResponse with operation status
+    """
+    try:
+        body = await request.json()
+        config_updates = body.get("config", {})
+
+        # Validate and update config
+        valid_keys = {
+            "concurrency",
+            "default_timeout",
+            "default_max_retries",
+            "cache_ttl_default",
+            "cache_ttl_static",
+            "cache_ttl_realtime",
+        }
+
+        updated = []
+        for key, value in config_updates.items():
+            if key in valid_keys:
+                # Basic type validation
+                if key == "concurrency" and isinstance(value, int) and 1 <= value <= 50:
+                    _runtime_config[key] = value
+                    updated.append(key)
+                elif key in ("default_timeout", "default_max_retries") and isinstance(value, int) and value > 0:
+                    _runtime_config[key] = value
+                    updated.append(key)
+                elif key.startswith("cache_ttl_") and isinstance(value, int) and value >= 0:
+                    _runtime_config[key] = value
+                    updated.append(key)
+
+        return JSONResponse({
+            "status": "success",
+            "message": f"Updated {len(updated)} config value(s)",
+            "updated": updated,
+            "current_config": _runtime_config
+        })
+    except Exception as e:
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": str(e)
+            },
+            status_code=500
+        )
+
+
 @mcp.custom_route("/", methods=["GET"])
 async def dashboard(request: Request) -> HTMLResponse:
     """Serve the monitoring dashboard.
@@ -872,6 +967,36 @@ async def dashboard(request: Request) -> HTMLResponse:
             color: #737373;
             font-size: 0.875rem;
             font-weight: 400;
+        }
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .tab {
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #737373;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .tab:hover {
+            color: #1a1a1a;
+        }
+        .tab.active {
+            color: #1a1a1a;
+            border-bottom-color: #1a1a1a;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
         }
         .grid {
             display: grid;
@@ -1025,8 +1150,8 @@ async def dashboard(request: Request) -> HTMLResponse:
         .request-table .status-col {
             white-space: nowrap;
             font-weight: 500;
-        }
             width: 60px;
+        }
         .request-table .status-success {
             color: #22c55e;
         }
@@ -1038,10 +1163,11 @@ async def dashboard(request: Request) -> HTMLResponse:
             white-space: nowrap;
             font-variant-numeric: tabular-nums;
             color: #737373;
-        }
             width: 80px;
+        }
         .request-table .url-col {
-            max-width: 400px;
+            width: auto;
+            min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -1096,6 +1222,46 @@ async def dashboard(request: Request) -> HTMLResponse:
             opacity: 0.5;
             cursor: not-allowed;
         }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #737373;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            background: white;
+            color: #1a1a1a;
+            transition: border-color 0.2s ease;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #1a1a1a;
+        }
+        .form-input[type="number"] {
+            font-variant-numeric: tabular-nums;
+        }
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+        }
+        .alert-warning {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            color: #92400e;
+        }
     </style>
 </head>
 <body>
@@ -1105,6 +1271,12 @@ async def dashboard(request: Request) -> HTMLResponse:
             <p class="subtitle">Web Scraping Server Dashboard</p>
         </header>
 
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
+            <button class="tab" onclick="switchTab('config')">Config</button>
+        </div>
+
+        <div id="dashboard-tab" class="tab-content active">
         <div class="grid">
             <div class="card">
                 <h2>Server Status</h2>
@@ -1208,6 +1380,56 @@ async def dashboard(request: Request) -> HTMLResponse:
 
         <div class="refresh-indicator" id="refresh-indicator">
             Auto-refresh: <span id="countdown">10</span>s
+        </div>
+        </div>
+
+        <div id="config-tab" class="tab-content">
+            <div class="alert alert-warning">
+                ⚠️ Configuration changes are not persisted and will reset when the server restarts
+            </div>
+
+            <div class="card">
+                <h2>Runtime Configuration</h2>
+                <form id="config-form">
+                    <div class="form-group">
+                        <label class="form-label" for="concurrency">Concurrency</label>
+                        <input type="number" id="concurrency" class="form-input" min="1" max="50" value="8">
+                        <small style="color: #737373; font-size: 0.75rem;">Maximum concurrent requests (1-50)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="default_timeout">Default Timeout (seconds)</label>
+                        <input type="number" id="default_timeout" class="form-input" min="1" value="30">
+                        <small style="color: #737373; font-size: 0.75rem;">Request timeout in seconds</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="default_max_retries">Default Max Retries</label>
+                        <input type="number" id="default_max_retries" class="form-input" min="0" value="3">
+                        <small style="color: #737373; font-size: 0.75rem;">Maximum retry attempts on failure</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="cache_ttl_default">Cache TTL - Default (seconds)</label>
+                        <input type="number" id="cache_ttl_default" class="form-input" min="0" value="3600">
+                        <small style="color: #737373; font-size: 0.75rem;">Default cache duration (1 hour)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="cache_ttl_static">Cache TTL - Static Assets (seconds)</label>
+                        <input type="number" id="cache_ttl_static" class="form-input" min="0" value="86400">
+                        <small style="color: #737373; font-size: 0.75rem;">Cache duration for static/CDN content (24 hours)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="cache_ttl_realtime">Cache TTL - Realtime Data (seconds)</label>
+                        <input type="number" id="cache_ttl_realtime" class="form-input" min="0" value="300">
+                        <small style="color: #737373; font-size: 0.75rem;">Cache duration for realtime/API data (5 minutes)</small>
+                    </div>
+
+                    <button type="submit" class="btn">Apply Changes</button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -1364,9 +1586,85 @@ async def dashboard(request: Request) -> HTMLResponse:
             }
         }
 
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + '-tab').classList.add('active');
+
+            // Load config when switching to config tab
+            if (tabName === 'config') {
+                loadConfig();
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
+
+                // Populate form fields
+                Object.entries(data.config).forEach(([key, value]) => {
+                    const input = document.getElementById(key);
+                    if (input) {
+                        input.value = value;
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load config:', error);
+            }
+        }
+
+        async function saveConfig(event) {
+            event.preventDefault();
+
+            const form = document.getElementById('config-form');
+            const formData = new FormData(form);
+
+            const config = {
+                concurrency: parseInt(document.getElementById('concurrency').value),
+                default_timeout: parseInt(document.getElementById('default_timeout').value),
+                default_max_retries: parseInt(document.getElementById('default_max_retries').value),
+                cache_ttl_default: parseInt(document.getElementById('cache_ttl_default').value),
+                cache_ttl_static: parseInt(document.getElementById('cache_ttl_static').value),
+                cache_ttl_realtime: parseInt(document.getElementById('cache_ttl_realtime').value),
+            };
+
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ config }),
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    alert('Configuration updated successfully!');
+                } else {
+                    alert('Failed to update configuration: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Failed to save config:', error);
+                alert('Error saving configuration');
+            }
+        }
+
         // Initial load
         fetchStats();
         startCountdown();
+
+        // Setup config form handler
+        document.getElementById('config-form').addEventListener('submit', saveConfig);
     </script>
 </body>
 </html>
