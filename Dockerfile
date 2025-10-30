@@ -15,14 +15,14 @@ RUN apt-get update && \
 # Install uv for faster package management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Copy dependency files and README (required for package build)
+COPY pyproject.toml README.md ./
 
-# Install dependencies using uv
-RUN uv pip install --system -e .
-
-# Copy application code
+# Copy application code (needed before editable install)
 COPY src/ ./src/
+
+# Install package and dependencies using uv
+RUN uv pip install --system -e .
 
 # Create cache directory with proper permissions
 RUN mkdir -p /app/cache && chmod 777 /app/cache

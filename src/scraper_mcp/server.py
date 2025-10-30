@@ -530,65 +530,38 @@ async def batch_extract_links(
 
 @mcp.tool()
 async def scrape_url(
-    urls: str | list[str],
+    urls: list[str],
     timeout: int = 30,
     max_retries: int = 3,
     css_selector: str | None = None,
-) -> ScrapeResponse | BatchScrapeResponse:
+) -> BatchScrapeResponse:
     """Scrape raw HTML content from one or more URLs.
 
     Args:
-        urls: Single URL string or list of URLs to scrape (must be http:// or https://)
+        urls: List of URLs to scrape (must be http:// or https://)
         timeout: Request timeout in seconds (default: 30)
         max_retries: Maximum number of retry attempts on failure (default: 3)
         css_selector: Optional CSS selector to filter HTML elements
                      (e.g., "meta", "img, video", ".article-content")
 
     Returns:
-        ScrapeResponse for single URL or BatchScrapeResponse for multiple URLs
+        BatchScrapeResponse with results for all URLs
     """
-    # Route to appropriate handler
-    if isinstance(urls, str):
-        # Single URL - use existing logic
-        provider = get_provider(urls)
-        result = await provider.scrape(urls, timeout=timeout, max_retries=max_retries)
-
-        # Apply CSS selector filter if provided
-        content = result.content
-        elements_matched = None
-        if css_selector:
-            content, elements_matched = filter_html_by_selector(content, css_selector)
-
-        # Add filter metadata
-        metadata = result.metadata.copy()
-        if css_selector:
-            metadata["css_selector_applied"] = css_selector
-            metadata["elements_matched"] = elements_matched
-
-        return ScrapeResponse(
-            url=result.url,
-            content=content,
-            status_code=result.status_code,
-            content_type=result.content_type,
-            metadata=metadata,
-        )
-    else:
-        # Multiple URLs - use batch handler
-        return await batch_scrape_urls(urls, timeout, max_retries, DEFAULT_CONCURRENCY, css_selector)
+    return await batch_scrape_urls(urls, timeout, max_retries, DEFAULT_CONCURRENCY, css_selector)
 
 
 @mcp.tool()
 async def scrape_url_markdown(
-    urls: str | list[str],
+    urls: list[str],
     timeout: int = 30,
     max_retries: int = 3,
     strip_tags: list[str] | None = None,
     css_selector: str | None = None,
-) -> ScrapeResponse | BatchScrapeResponse:
+) -> BatchScrapeResponse:
     """Scrape one or more URLs and convert the content to markdown format.
 
     Args:
-        urls: Single URL string or list of URLs to scrape (must be http:// or https://)
+        urls: List of URLs to scrape (must be http:// or https://)
         timeout: Request timeout in seconds (default: 30)
         max_retries: Maximum number of retry attempts on failure (default: 3)
         strip_tags: List of HTML tags to strip (e.g., ['script', 'style'])
@@ -596,58 +569,25 @@ async def scrape_url_markdown(
                      (e.g., ".article-content", "article p")
 
     Returns:
-        ScrapeResponse for single URL or BatchScrapeResponse for multiple URLs with markdown content
+        BatchScrapeResponse with markdown results for all URLs
     """
-    # Route to appropriate handler
-    if isinstance(urls, str):
-        # Single URL - use existing logic
-        provider = get_provider(urls)
-        result = await provider.scrape(urls, timeout=timeout, max_retries=max_retries)
-
-        # Apply CSS selector filter if provided (before other processing)
-        content = result.content
-        elements_matched = None
-        if css_selector:
-            content, elements_matched = filter_html_by_selector(content, css_selector)
-
-        # Convert HTML to markdown
-        markdown_content = html_to_markdown(content, strip_tags=strip_tags)
-
-        # Extract page metadata
-        page_metadata = extract_metadata(content)
-
-        # Add filter metadata
-        metadata = {**result.metadata, "page_metadata": page_metadata}
-        if css_selector:
-            metadata["css_selector_applied"] = css_selector
-            metadata["elements_matched"] = elements_matched
-
-        return ScrapeResponse(
-            url=result.url,
-            content=markdown_content,
-            status_code=result.status_code,
-            content_type=result.content_type,
-            metadata=metadata,
-        )
-    else:
-        # Multiple URLs - use batch handler
-        return await batch_scrape_urls_markdown(
-            urls, timeout, max_retries, strip_tags, DEFAULT_CONCURRENCY, css_selector
-        )
+    return await batch_scrape_urls_markdown(
+        urls, timeout, max_retries, strip_tags, DEFAULT_CONCURRENCY, css_selector
+    )
 
 
 @mcp.tool()
 async def scrape_url_text(
-    urls: str | list[str],
+    urls: list[str],
     timeout: int = 30,
     max_retries: int = 3,
     strip_tags: list[str] | None = None,
     css_selector: str | None = None,
-) -> ScrapeResponse | BatchScrapeResponse:
+) -> BatchScrapeResponse:
     """Scrape one or more URLs and extract plain text content.
 
     Args:
-        urls: Single URL string or list of URLs to scrape (must be http:// or https://)
+        urls: List of URLs to scrape (must be http:// or https://)
         timeout: Request timeout in seconds (default: 30)
         max_retries: Maximum number of retry attempts on failure (default: 3)
         strip_tags: List of HTML tags to strip (default: script, style, meta, link, noscript)
@@ -655,87 +595,33 @@ async def scrape_url_text(
                      (e.g., "#main-content", "article.post")
 
     Returns:
-        ScrapeResponse for single URL or BatchScrapeResponse for multiple URLs with plain text content
+        BatchScrapeResponse with text results for all URLs
     """
-    # Route to appropriate handler
-    if isinstance(urls, str):
-        # Single URL - use existing logic
-        provider = get_provider(urls)
-        result = await provider.scrape(urls, timeout=timeout, max_retries=max_retries)
-
-        # Apply CSS selector filter if provided (before other processing)
-        content = result.content
-        elements_matched = None
-        if css_selector:
-            content, elements_matched = filter_html_by_selector(content, css_selector)
-
-        # Convert HTML to text
-        text_content = html_to_text(content, strip_tags=strip_tags)
-
-        # Extract page metadata
-        page_metadata = extract_metadata(content)
-
-        # Add filter metadata
-        metadata = {**result.metadata, "page_metadata": page_metadata}
-        if css_selector:
-            metadata["css_selector_applied"] = css_selector
-            metadata["elements_matched"] = elements_matched
-
-        return ScrapeResponse(
-            url=result.url,
-            content=text_content,
-            status_code=result.status_code,
-            content_type=result.content_type,
-            metadata=metadata,
-        )
-    else:
-        # Multiple URLs - use batch handler
-        return await batch_scrape_urls_text(
-            urls, timeout, max_retries, strip_tags, DEFAULT_CONCURRENCY, css_selector
-        )
+    return await batch_scrape_urls_text(
+        urls, timeout, max_retries, strip_tags, DEFAULT_CONCURRENCY, css_selector
+    )
 
 
 @mcp.tool()
 async def scrape_extract_links(
-    urls: str | list[str],
+    urls: list[str],
     timeout: int = 30,
     max_retries: int = 3,
     css_selector: str | None = None,
-) -> LinksResponse | BatchLinksResponse:
+) -> BatchLinksResponse:
     """Scrape one or more URLs and extract all links.
 
     Args:
-        urls: Single URL string or list of URLs to scrape (must be http:// or https://)
+        urls: List of URLs to scrape (must be http:// or https://)
         timeout: Request timeout in seconds (default: 30)
         max_retries: Maximum number of retry attempts on failure (default: 3)
         css_selector: Optional CSS selector to scope link extraction to specific sections
                      (e.g., "nav", "article.main-content")
 
     Returns:
-        LinksResponse for single URL or BatchLinksResponse for multiple URLs with extracted links
+        BatchLinksResponse with link extraction results for all URLs
     """
-    # Route to appropriate handler
-    if isinstance(urls, str):
-        # Single URL - use existing logic
-        provider = get_provider(urls)
-        result = await provider.scrape(urls, timeout=timeout, max_retries=max_retries)
-
-        # Apply CSS selector filter if provided (to scope link extraction)
-        content = result.content
-        if css_selector:
-            content, _ = filter_html_by_selector(content, css_selector)
-
-        # Extract all links
-        links = extract_links(content, base_url=result.url)
-
-        return LinksResponse(
-            url=result.url,
-            links=links,
-            count=len(links),
-        )
-    else:
-        # Multiple URLs - use batch handler
-        return await batch_extract_links(urls, timeout, max_retries, DEFAULT_CONCURRENCY, css_selector)
+    return await batch_extract_links(urls, timeout, max_retries, DEFAULT_CONCURRENCY, css_selector)
 
 
 # Cache management tools (optional - controlled by ENABLE_CACHE_TOOLS environment variable)
@@ -787,7 +673,12 @@ def run_server(transport: str = "streamable-http", host: str = "0.0.0.0", port: 
         host: Host to bind to (default: 0.0.0.0)
         port: Port to bind to (default: 8000)
     """
-    mcp.run(transport=transport, host=host, port=port)
+    # Configure host and port via settings
+    mcp.settings.host = host
+    mcp.settings.port = port
+
+    # Run server with specified transport
+    mcp.run(transport=transport)
 
 
 if __name__ == "__main__":

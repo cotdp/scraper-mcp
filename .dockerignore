@@ -35,7 +35,7 @@ docker-compose.yml
 .dockerignore
 
 # Documentation
-README.md
+# Note: README.md is needed for package build (referenced in pyproject.toml)
 docs/
 
 # Environment

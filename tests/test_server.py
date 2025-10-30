@@ -39,13 +39,16 @@ class TestScrapeUrlTool:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_url("https://example.com")
+            result = await scrape_url(["https://example.com"])
 
-            assert result.url == "https://example.com"
-            assert result.content == sample_html
-            assert result.status_code == 200
-            assert result.content_type == "text/html; charset=utf-8"
-            assert "encoding" in result.metadata
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
+            assert result.results[0].data.url == "https://example.com"
+            assert result.results[0].data.content == sample_html
+            assert result.results[0].data.status_code == 200
+            assert result.results[0].data.content_type == "text/html; charset=utf-8"
+            assert "encoding" in result.results[0].data.metadata
 
     @pytest.mark.asyncio
     async def test_scrape_url_with_timeout(self, sample_html: str) -> None:
@@ -65,12 +68,14 @@ class TestScrapeUrlTool:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_url("https://example.com", timeout=60)
+            result = await scrape_url(["https://example.com"], timeout=60)
 
             # Verify scrape was called with custom timeout and default retries
             mock_provider.scrape.assert_called_once_with(
                 "https://example.com", timeout=60, max_retries=3
             )
+            assert result.total == 1
+            assert result.successful == 1
 
     @pytest.mark.asyncio
     async def test_scrape_url_with_retries(self, sample_html: str) -> None:
@@ -90,7 +95,7 @@ class TestScrapeUrlTool:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_url("https://example.com", max_retries=5)
+            result = await scrape_url(["https://example.com"], max_retries=5)
 
             # Verify scrape was called with custom retries
             mock_provider.scrape.assert_called_once_with(
@@ -98,8 +103,8 @@ class TestScrapeUrlTool:
             )
 
             # Verify metadata includes retry info
-            assert result.metadata["attempts"] == 2
-            assert result.metadata["retries"] == 1
+            assert result.results[0].data.metadata["attempts"] == 2
+            assert result.results[0].data.metadata["retries"] == 1
 
 
 class TestScrapeUrlMarkdownTool:
@@ -123,16 +128,20 @@ class TestScrapeUrlMarkdownTool:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_url_markdown("https://example.com")
+            result = await scrape_url_markdown(["https://example.com"])
+
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
 
             # Content should be markdown, not HTML
-            assert "Main Heading" in result.content
-            assert "<html>" not in result.content
-            assert "<body>" not in result.content
+            assert "Main Heading" in result.results[0].data.content
+            assert "<html>" not in result.results[0].data.content
+            assert "<body>" not in result.results[0].data.content
 
             # Should have page metadata
-            assert "page_metadata" in result.metadata
-            assert result.metadata["page_metadata"]["title"] == "Test Page Title"
+            assert "page_metadata" in result.results[0].data.metadata
+            assert result.results[0].data.metadata["page_metadata"]["title"] == "Test Page Title"
 
     @pytest.mark.asyncio
     async def test_scrape_url_markdown_strip_tags(self, sample_html: str) -> None:
@@ -153,14 +162,18 @@ class TestScrapeUrlMarkdownTool:
             mock_get_provider.return_value = mock_provider
 
             result = await scrape_url_markdown(
-                "https://example.com", strip_tags=["script", "style"]
+                ["https://example.com"], strip_tags=["script", "style"]
             )
 
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
+
             # Scripts and styles should be stripped
-            assert "console.log" not in result.content
-            assert ".test { color: red; }" not in result.content
+            assert "console.log" not in result.results[0].data.content
+            assert ".test { color: red; }" not in result.results[0].data.content
             # But content should remain
-            assert "Main Heading" in result.content
+            assert "Main Heading" in result.results[0].data.content
 
     @pytest.mark.asyncio
     async def test_scrape_url_markdown_metadata_extraction(
@@ -182,10 +195,14 @@ class TestScrapeUrlMarkdownTool:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_url_markdown("https://example.com")
+            result = await scrape_url_markdown(["https://example.com"])
+
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
 
             # Should extract metadata
-            page_metadata = result.metadata["page_metadata"]
+            page_metadata = result.results[0].data.metadata["page_metadata"]
             assert page_metadata["title"] == "Metadata Test Page"
             assert page_metadata["description"] == "Test description"
             assert page_metadata["og:title"] == "OG Title"
@@ -212,15 +229,19 @@ class TestScrapeUrlTextTool:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_url_text("https://example.com")
+            result = await scrape_url_text(["https://example.com"])
+
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
 
             # Content should be plain text
-            assert "Main Heading" in result.content
-            assert "sample" in result.content and "paragraph" in result.content
+            assert "Main Heading" in result.results[0].data.content
+            assert "sample" in result.results[0].data.content and "paragraph" in result.results[0].data.content
             # No HTML tags
-            assert "<html>" not in result.content
-            assert "<body>" not in result.content
-            assert "<p>" not in result.content
+            assert "<html>" not in result.results[0].data.content
+            assert "<body>" not in result.results[0].data.content
+            assert "<p>" not in result.results[0].data.content
 
     @pytest.mark.asyncio
     async def test_scrape_url_text_default_stripping(self, sample_html: str) -> None:
@@ -240,12 +261,16 @@ class TestScrapeUrlTextTool:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_url_text("https://example.com")
+            result = await scrape_url_text(["https://example.com"])
+
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
 
             # Scripts, styles, etc. should be stripped by default
-            assert "console.log" not in result.content
-            assert ".test { color: red; }" not in result.content
-            assert "No JavaScript content" not in result.content
+            assert "console.log" not in result.results[0].data.content
+            assert ".test { color: red; }" not in result.results[0].data.content
+            assert "No JavaScript content" not in result.results[0].data.content
 
     @pytest.mark.asyncio
     async def test_scrape_url_text_custom_stripping(self, sample_html: str) -> None:
@@ -266,13 +291,17 @@ class TestScrapeUrlTextTool:
             mock_get_provider.return_value = mock_provider
 
             result = await scrape_url_text(
-                "https://example.com", strip_tags=["script", "ul"]
+                ["https://example.com"], strip_tags=["script", "ul"]
             )
 
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
+
             # Custom tags should be stripped
-            assert "console.log" not in result.content
+            assert "console.log" not in result.results[0].data.content
             # ul stripped, so links should not appear
-            assert "Example Link" not in result.content
+            assert "Example Link" not in result.results[0].data.content
 
 
 class TestScrapeExtractLinksTool:
@@ -296,11 +325,14 @@ class TestScrapeExtractLinksTool:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_extract_links("https://example.com/page")
+            result = await scrape_extract_links(["https://example.com/page"])
 
-            assert result.url == "https://example.com/page"
-            assert result.count == 5  # Should find 5 links
-            assert len(result.links) == 5
+            # Should return BatchLinksResponse
+            assert result.total == 1
+            assert result.successful == 1
+            assert result.results[0].data.url == "https://example.com/page"
+            assert result.results[0].data.count == 5  # Should find 5 links
+            assert len(result.results[0].data.links) == 5
 
     @pytest.mark.asyncio
     async def test_extract_links_details(self, html_with_links: str) -> None:
@@ -320,17 +352,21 @@ class TestScrapeExtractLinksTool:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_extract_links("https://example.com/page")
+            result = await scrape_extract_links(["https://example.com/page"])
+
+            # Should return BatchLinksResponse
+            assert result.total == 1
+            assert result.successful == 1
 
             # Check that links have required fields
-            for link in result.links:
+            for link in result.results[0].data.links:
                 assert "url" in link
                 assert "text" in link
                 assert "title" in link
 
             # Check specific links
             external_link = next(
-                (l for l in result.links if l["text"] == "External Link"), None
+                (l for l in result.results[0].data.links if l["text"] == "External Link"), None
             )
             assert external_link is not None
             assert external_link["url"] == "https://example.com"
@@ -353,11 +389,15 @@ class TestScrapeExtractLinksTool:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_extract_links("https://example.com/page")
+            result = await scrape_extract_links(["https://example.com/page"])
+
+            # Should return BatchLinksResponse
+            assert result.total == 1
+            assert result.successful == 1
 
             # Relative URLs should be resolved
             relative_link = next(
-                (l for l in result.links if "/relative/path" in l["url"]), None
+                (l for l in result.results[0].data.links if "/relative/path" in l["url"]), None
             )
             assert relative_link is not None
             assert relative_link["url"] == "https://example.com/relative/path"
@@ -381,10 +421,13 @@ class TestScrapeExtractLinksTool:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_extract_links("https://example.com")
+            result = await scrape_extract_links(["https://example.com"])
 
-            assert result.count == 0
-            assert len(result.links) == 0
+            # Should return BatchLinksResponse
+            assert result.total == 1
+            assert result.successful == 1
+            assert result.results[0].data.count == 0
+            assert len(result.results[0].data.links) == 0
 
 
 class TestBatchScrapeUrl:
@@ -464,31 +507,6 @@ class TestBatchScrapeUrl:
             # Second result should have error
             assert result.results[1].success is False
             assert result.results[1].error is not None
-
-    @pytest.mark.asyncio
-    async def test_batch_scrape_single_url_backward_compat(
-        self, sample_html: str
-    ) -> None:
-        """Test that single URL still works (backward compatibility)."""
-        mock_result = ScrapeResult(
-            url="https://example.com",
-            content=sample_html,
-            status_code=200,
-            content_type="text/html",
-            metadata={},
-        )
-
-        with patch("scraper_mcp.server.get_provider") as mock_get_provider:
-            mock_provider = Mock()
-            mock_provider.scrape = AsyncMock(return_value=mock_result)
-            mock_get_provider.return_value = mock_provider
-
-            result = await scrape_url("https://example.com")
-
-            # Should return ScrapeResponse, not BatchScrapeResponse
-            assert hasattr(result, "url")
-            assert hasattr(result, "content")
-            assert not hasattr(result, "total")
 
 
 class TestBatchScrapeUrlMarkdown:
