@@ -1857,11 +1857,11 @@ async def dashboard(request: Request) -> HTMLResponse:
                 }
 
                 const startTime = Date.now();
-                const response = await fetch('/mcp/v1/tools/call', {
+                const response = await fetch('/mcp', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'text/event-stream'
+                        'Accept': 'application/json, text/event-stream'
                     },
                     body: JSON.stringify(payload)
                 });
@@ -1874,19 +1874,28 @@ async def dashboard(request: Request) -> HTMLResponse:
 
                 const text = await response.text();
 
-                // Parse SSE response - last data event has the result
+                // Parse SSE response - extract JSON from data: line
                 const lines = text.trim().split('\\n');
                 let result = null;
 
                 for (let i = 0; i < lines.length; i++) {
                     if (lines[i].startsWith('data: ')) {
                         const data = lines[i].substring(6);
-                        if (data !== '[DONE]') {
-                            try {
-                                result = JSON.parse(data);
-                            } catch (e) {
-                                // Skip invalid JSON
+                        try {
+                            const jsonrpcResponse = JSON.parse(data);
+                            // Extract the actual tool result from JSON-RPC response
+                            if (jsonrpcResponse.result && jsonrpcResponse.result.structuredContent) {
+                                result = jsonrpcResponse.result.structuredContent;
+                            } else if (jsonrpcResponse.result) {
+                                result = jsonrpcResponse.result;
+                            } else if (jsonrpcResponse.error) {
+                                throw new Error(jsonrpcResponse.error.message || 'Tool call failed');
                             }
+                        } catch (e) {
+                            if (e.message && !e.message.includes('Unexpected')) {
+                                throw e;
+                            }
+                            // Skip invalid JSON
                         }
                     }
                 }
