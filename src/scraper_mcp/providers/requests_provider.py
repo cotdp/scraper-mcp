@@ -9,12 +9,16 @@ from typing import Any
 from urllib.parse import urlencode, urlparse
 
 import requests
+import urllib3
 
 from scraper_mcp.cache_manager import get_cache_manager
 from scraper_mcp.providers.base import ScrapeResult, ScraperProvider
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Suppress InsecureRequestWarning when SSL verification is disabled
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class RequestsProvider(ScraperProvider):
@@ -215,6 +219,11 @@ class RequestsProvider(ScraperProvider):
 
         # Get proxy configuration from runtime config (after determining original_url)
         proxies = self._get_proxies(original_url)
+
+        # Get SSL verification setting from runtime config
+        from scraper_mcp.server import get_config
+        verify_ssl = get_config("verify_ssl", True)
+
         if self.scrapeops_enabled:
             request_url = self._build_scrapeops_url(url)
             logger.debug(f"Using ScrapeOps proxy for URL: {url}")
@@ -250,7 +259,7 @@ class RequestsProvider(ScraperProvider):
                 loop = asyncio.get_event_loop()
                 response = await loop.run_in_executor(
                     None,
-                    lambda: self.session.get(request_url, headers=headers, timeout=timeout, proxies=proxies),
+                    lambda: self.session.get(request_url, headers=headers, timeout=timeout, proxies=proxies, verify=verify_ssl),
                 )
 
                 # Raise for bad status codes
@@ -272,6 +281,9 @@ class RequestsProvider(ScraperProvider):
                     metadata["proxy_config"] = {k: v for k, v in proxies.items()}
                 else:
                     metadata["proxy_used"] = False
+
+                # Add SSL verification metadata
+                metadata["ssl_verify"] = verify_ssl
 
                 # Add ScrapeOps metadata if enabled
                 if self.scrapeops_enabled:

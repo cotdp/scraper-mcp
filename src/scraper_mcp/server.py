@@ -116,6 +116,7 @@ _runtime_config: dict[str, Any] = {
     "http_proxy": "",
     "https_proxy": "",
     "no_proxy": "",
+    "verify_ssl": True,  # SSL certificate verification (disable for self-signed certs)
 }
 
 
@@ -874,6 +875,7 @@ async def api_config_get(request: Request) -> JSONResponse:
             "http_proxy": "",
             "https_proxy": "",
             "no_proxy": "",
+            "verify_ssl": True,
         },
         "note": "Changes are not persisted and will reset on server restart"
     })
@@ -902,6 +904,7 @@ async def api_config_update(request: Request) -> JSONResponse:
             "http_proxy",
             "https_proxy",
             "no_proxy",
+            "verify_ssl",
         }
 
         updated = []
@@ -917,7 +920,7 @@ async def api_config_update(request: Request) -> JSONResponse:
                 elif key.startswith("cache_ttl_") and isinstance(value, int) and value >= 0:
                     _runtime_config[key] = value
                     updated.append(key)
-                elif key == "proxy_enabled" and isinstance(value, bool):
+                elif key in ("proxy_enabled", "verify_ssl") and isinstance(value, bool):
                     _runtime_config[key] = value
                     updated.append(key)
                 elif key in ("http_proxy", "https_proxy", "no_proxy") and isinstance(value, str):
@@ -1568,6 +1571,15 @@ async def dashboard(request: Request) -> HTMLResponse:
                         </div>
                     </div>
 
+                    <h2 style="margin-top: 1.5rem;">Security Settings</h2>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="verify_ssl" checked>
+                        <label for="verify_ssl">Verify SSL Certificates</label>
+                    </div>
+                    <div class="alert alert-warning" style="margin-top: 0.75rem;">
+                        ⚠️ Disabling SSL verification exposes you to man-in-the-middle attacks. Only disable for development/testing with self-signed certificates.
+                    </div>
+
                     <button type="submit" class="btn">Apply Changes</button>
                 </form>
             </div>
@@ -1794,6 +1806,7 @@ async def dashboard(request: Request) -> HTMLResponse:
                 http_proxy: document.getElementById('http_proxy').value,
                 https_proxy: document.getElementById('https_proxy').value,
                 no_proxy: document.getElementById('no_proxy').value,
+                verify_ssl: document.getElementById('verify_ssl').checked,
             };
 
             try {
