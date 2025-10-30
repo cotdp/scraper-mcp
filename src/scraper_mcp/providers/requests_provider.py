@@ -281,9 +281,6 @@ class RequestsProvider(ScraperProvider):
                 else:
                     metadata["proxy_used"] = False
 
-                # Add SSL verification metadata
-                metadata["ssl_verify"] = verify_ssl
-
                 # Add ScrapeOps metadata if enabled
                 if self.scrapeops_enabled:
                     metadata["scrapeops_enabled"] = True

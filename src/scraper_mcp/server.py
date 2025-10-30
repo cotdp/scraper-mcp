@@ -190,10 +190,6 @@ def clean_metadata(metadata: dict[str, Any], css_selector: str | None = None, el
         if "proxy_config" in metadata:
             cleaned["proxy_config"] = metadata["proxy_config"]
 
-    # Only include ssl_verify if false (true is the secure default)
-    if "ssl_verify" in metadata and not metadata["ssl_verify"]:
-        cleaned["ssl_verify"] = False
-
     # Only include CSS selector info if selector was applied
     if css_selector:
         cleaned["css_selector_applied"] = css_selector
