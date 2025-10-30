@@ -1,4 +1,4 @@
-"""MCP server for web scraping functionality."""
+"""MCP server for context-efficient web scraping functionality."""
 
 from __future__ import annotations
 
