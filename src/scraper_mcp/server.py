@@ -826,9 +826,13 @@ async def dashboard(request: Request) -> HTMLResponse:
             border-radius: 8px;
             padding: 1.5rem;
             transition: border-color 0.2s ease;
+            margin-bottom: 1rem;
         }
         .card:hover {
             border-color: #d4d4d4;
+        }
+        .card:last-of-type {
+            margin-bottom: 0;
         }
         .card h2 {
             font-size: 0.75rem;
@@ -999,22 +1003,6 @@ async def dashboard(request: Request) -> HTMLResponse:
             </div>
 
             <div class="card">
-                <h2>Cache Status</h2>
-                <div class="stat">
-                    <span class="stat-label">Entries</span>
-                    <span class="stat-value" id="cache-entries">-</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Size</span>
-                    <span class="stat-value" id="cache-size">-</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Hit Rate</span>
-                    <span class="stat-value" id="cache-hit-rate">-</span>
-                </div>
-            </div>
-
-            <div class="card">
                 <h2>Request Stats</h2>
                 <div class="big-stat">
                     <div class="big-stat-value" id="total-requests">0</div>
@@ -1043,19 +1031,33 @@ async def dashboard(request: Request) -> HTMLResponse:
             </div>
         </div>
 
-        <div class="grid">
-            <div class="card">
-                <h2>Recent Requests (Last 10)</h2>
-                <div class="request-list" id="recent-requests">
-                    <p style="text-align: center; color: #6b7280; padding: 2rem;">Loading...</p>
-                </div>
+        <div class="card">
+            <h2>Recent Requests (Last 10)</h2>
+            <div class="request-list" id="recent-requests">
+                <p style="text-align: center; color: #737373; padding: 2rem;">Loading...</p>
             </div>
+        </div>
 
-            <div class="card">
-                <h2>Recent Errors (Last 10)</h2>
-                <div class="request-list" id="recent-errors">
-                    <p style="text-align: center; color: #6b7280; padding: 2rem;">No errors</p>
-                </div>
+        <div class="card">
+            <h2>Recent Errors (Last 10)</h2>
+            <div class="request-list" id="recent-errors">
+                <p style="text-align: center; color: #737373; padding: 2rem;">No errors</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Cache Status</h2>
+            <div class="stat">
+                <span class="stat-label">Entries</span>
+                <span class="stat-value" id="cache-entries">-</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Size</span>
+                <span class="stat-value" id="cache-size">-</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Hit Rate</span>
+                <span class="stat-value" id="cache-hit-rate">-</span>
             </div>
         </div>
 
