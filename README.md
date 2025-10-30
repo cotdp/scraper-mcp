@@ -1,5 +1,7 @@
 # Scraper MCP
 
+[![CI](https://github.com/michaelpoluektov/scraper-mcp/workflows/CI/badge.svg)](https://github.com/michaelpoluektov/scraper-mcp/actions/workflows/ci.yml)
+
 A context-optimized Model Context Protocol (MCP) server for efficient web scraping. This server provides AI tools with pre-processed, filtered web content—reducing token usage by converting raw HTML to markdown/text and applying CSS selectors server-side, so LLMs only receive the data they actually need.
 
 ## Features
