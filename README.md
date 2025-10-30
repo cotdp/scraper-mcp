@@ -5,27 +5,135 @@ A Model Context Protocol (MCP) server for efficient web scraping. This server pr
 ## Features
 
 - **Multiple scraping tools**: Raw HTML, markdown conversion, plain text extraction, and link extraction
+- **Monitoring dashboard**: Real-time metrics, request logs, cache statistics, and health monitoring
+- **Interactive playground**: Test scraping tools directly from your browser with live responses
+- **Runtime configuration**: Adjust concurrency, timeouts, retries, and proxy settings without restarts
 - **Provider architecture**: Extensible design supporting multiple scraping backends
 - **Docker support**: Easy deployment with Docker and Docker Compose
 - **HTTP/SSE transports**: Supports both Streamable HTTP and SSE MCP transports
 - **Structured output**: Returns well-typed, validated data that clients can easily process
 
-## Quick Start with Docker
+## Configuration
 
-The easiest way to run the server is using Docker Compose:
+### Environment Setup
+
+Create a `.env` file in the project root to configure the server. Copy from `.env.example`:
 
 ```bash
-# Build and start the server
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop the server
-docker-compose down
+cp .env.example .env
 ```
 
-The server will be available at `http://localhost:8000/mcp`
+#### Key Configuration Options
+
+**Standard Proxy** (for corporate firewalls):
+```bash
+HTTP_PROXY=http://proxy.example.com:8080
+HTTPS_PROXY=http://proxy.example.com:8080
+NO_PROXY=localhost,127.0.0.1,.local
+```
+
+See [Proxy Configuration](#proxy-configuration) section for detailed setup instructions.
+
+**ScrapeOps Proxy** (for JavaScript rendering, residential IPs, anti-bot):
+```bash
+SCRAPEOPS_API_KEY=your_api_key_here
+SCRAPEOPS_RENDER_JS=true           # Enable for SPAs (default: false)
+SCRAPEOPS_RESIDENTIAL=true         # Use residential proxies (default: false)
+SCRAPEOPS_COUNTRY=us               # Target specific country (optional)
+SCRAPEOPS_DEVICE=desktop           # Device type: desktop|mobile|tablet
+```
+
+See [ScrapeOps Proxy Integration](#scrapeops-proxy-integration) section for detailed setup, use cases, and cost optimization.
+
+**Server Settings** (optional, defaults work for most cases):
+```bash
+TRANSPORT=streamable-http          # or 'sse'
+HOST=0.0.0.0                       # Bind to all interfaces
+PORT=8000                          # Default port
+CACHE_DIR=/app/cache               # Cache directory path
+ENABLE_CACHE_TOOLS=false           # Expose cache management tools
+```
+
+See `.env.example` for complete configuration reference with detailed comments.
+
+## Quick Start with Docker Compose
+
+### 1. Configure Environment
+
+Create your `.env` file with desired settings (see Configuration section above):
+
+```bash
+cp .env.example .env
+# Edit .env with your proxy or ScrapeOps settings
+```
+
+### 2. Launch the Server
+
+```bash
+# Build and start the server in detached mode
+docker-compose up -d
+
+# View logs (optional)
+docker-compose logs -f scraper-mcp
+
+# Check health status
+docker-compose ps
+```
+
+The server will be available at:
+- **MCP Endpoint**: `http://localhost:8000/mcp` (for AI clients)
+- **Dashboard**: `http://localhost:8000/` (web interface)
+
+### 3. Access the Dashboard
+
+Open your browser to `http://localhost:8000/` to access the monitoring dashboard.
+
+![Dashboard Screenshot](docs/1-dashboard.png)
+
+The dashboard provides three tabs:
+
+#### Dashboard Tab
+Real-time monitoring and statistics:
+- **Server Status**: Health, uptime, start time
+- **Request Stats**: Total requests, success rate, failure count
+- **Retry Stats**: Total retries, average per request
+- **Cache Status**: Entries, size, hit rate with clear cache button
+- **Recent Requests**: Last 10 requests with timestamps, status codes, response times
+- **Recent Errors**: Last 10 failures with error details and attempt counts
+- Auto-refreshes every 9 seconds
+
+#### Playground Tab
+Interactive testing environment for all scraping tools:
+
+![Playground Screenshot](docs/2-playground.png)
+
+- Test all four scraping tools (`scrape_url`, `scrape_url_markdown`, `scrape_url_text`, `scrape_extract_links`)
+- Configure URL, timeout, max retries, and CSS selectors
+- View JSON responses with syntax highlighting
+- Copy responses to clipboard with one click
+
+#### Config Tab
+Runtime configuration overrides (not persisted):
+
+![Config Screenshot](docs/3-config.png)
+
+- **Concurrency**: Max concurrent requests (1-50)
+- **Default Timeout**: Request timeout in seconds
+- **Max Retries**: Retry attempts on failure
+- **Cache TTL Settings**: Default, realtime, and static cache durations
+- **Proxy Settings**: Enable/disable proxy with HTTP/HTTPS/NO_PROXY configuration
+- Changes apply immediately without server restart
+- Reset when server restarts (use `.env` for persistent config)
+
+### 4. Stop the Server
+
+```bash
+# Stop and remove containers
+docker-compose down
+
+# Stop, remove containers, and clear cache volume
+docker-compose down -v
+```
 
 ## Available Tools
 
@@ -154,20 +262,7 @@ docker run -p 8080:8080 scraper-mcp:latest streamable-http 0.0.0.0 8080
 
 ### Docker Compose
 
-The `docker-compose.yml` file provides a production-ready configuration:
-
-```yaml
-services:
-  scraper-mcp:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - TRANSPORT=streamable-http
-      - HOST=0.0.0.0
-      - PORT=8000
-    restart: unless-stopped
-```
+See the [Quick Start with Docker Compose](#quick-start-with-docker-compose) section above for complete instructions including configuration, launching, and dashboard access.
 
 ## Connecting from Claude Desktop
 
@@ -182,6 +277,8 @@ To use this server with Claude Desktop, add it to your MCP settings:
   }
 }
 ```
+
+Once connected, Claude can use all four scraping tools. You can monitor requests in real-time by opening `http://localhost:8000/` in your browser to access the dashboard.
 
 ## Project Structure
 
