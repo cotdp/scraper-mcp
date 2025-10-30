@@ -25,11 +25,11 @@ A context-optimized Model Context Protocol (MCP) server for efficient web scrapi
 - **Docker support**: One-command deployment with Docker Compose
 - **HTTP/SSE transports**: Supports both Streamable HTTP and SSE MCP transports
 
-### Dashboard Features
+## Dashboard Features
 
 Access the monitoring dashboard at `http://localhost:8000/` to monitor and manage your scraper in real-time.
 
-#### Real-Time Monitoring Dashboard
+### Real-Time Monitoring Dashboard
 Track server health, request statistics, retry metrics, and cache performance at a glance:
 
 ![Dashboard](docs/1-dashboard.png)
@@ -42,7 +42,7 @@ Track server health, request statistics, retry metrics, and cache performance at
 - **Recent Errors**: Last 10 failures with detailed error messages and attempt counts
 - Auto-refreshes every 9 seconds for real-time monitoring
 
-#### Interactive API Playground
+### Interactive API Playground
 Test all scraping tools without writing code:
 
 ![Playground](docs/2-playground.png)
@@ -53,7 +53,7 @@ Test all scraping tools without writing code:
 - One-click copy to clipboard
 - See execution time for performance testing
 
-#### Runtime Configuration
+### Runtime Configuration
 Adjust settings on-the-fly without restarting the server:
 
 ![Config](docs/3-config.png)
@@ -188,48 +188,7 @@ The server will be available at:
 - **MCP Endpoint**: `http://localhost:8000/mcp` (for AI clients)
 - **Dashboard**: `http://localhost:8000/` (web interface)
 
-### 3. Access the Dashboard
-
-Open your browser to `http://localhost:8000/` to access the monitoring dashboard.
-
-![Dashboard Screenshot](docs/1-dashboard.png)
-
-The dashboard provides three tabs:
-
-#### Dashboard Tab
-Real-time monitoring and statistics:
-- **Server Status**: Health, uptime, start time
-- **Request Stats**: Total requests, success rate, failure count
-- **Retry Stats**: Total retries, average per request
-- **Cache Status**: Entries, size, hit rate with clear cache button
-- **Recent Requests**: Last 10 requests with timestamps, status codes, response times
-- **Recent Errors**: Last 10 failures with error details and attempt counts
-- Auto-refreshes every 9 seconds
-
-#### Playground Tab
-Interactive testing environment for all scraping tools:
-
-![Playground Screenshot](docs/2-playground.png)
-
-- Test all four scraping tools (`scrape_url`, `scrape_url_markdown`, `scrape_url_text`, `scrape_extract_links`)
-- Configure URL, timeout, max retries, and CSS selectors
-- View JSON responses with syntax highlighting
-- Copy responses to clipboard with one click
-
-#### Config Tab
-Runtime configuration overrides (not persisted):
-
-![Config Screenshot](docs/3-config.png)
-
-- **Concurrency**: Max concurrent requests (1-50)
-- **Default Timeout**: Request timeout in seconds
-- **Max Retries**: Retry attempts on failure
-- **Cache TTL Settings**: Default, realtime, and static cache durations
-- **Proxy Settings**: Enable/disable proxy with HTTP/HTTPS/NO_PROXY configuration
-- Changes apply immediately without server restart
-- Reset when server restarts (use `.env` for persistent config)
-
-### 4. Stop the Server
+### 3. Stop the Server
 
 ```bash
 # Stop and remove containers
