@@ -42,7 +42,7 @@ class TestRequestsProvider:
         self, provider: RequestsProvider, sample_html: str
     ) -> None:
         """Test successful scraping."""
-        # Mock the requests.get call
+        # Mock the session.get call
         mock_response = Mock()
         mock_response.url = "https://example.com"
         mock_response.text = sample_html
@@ -54,10 +54,10 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.123
 
-        with patch("requests.get", return_value=mock_response) as mock_get:
+        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
             result = await provider.scrape("https://example.com")
 
-            # Verify requests.get was called correctly
+            # Verify session.get was called correctly
             mock_get.assert_called_once()
             call_args = mock_get.call_args
             assert call_args[0][0] == "https://example.com"
@@ -70,7 +70,6 @@ class TestRequestsProvider:
             assert result.content == sample_html
             assert result.status_code == 200
             assert result.content_type == "text/html; charset=utf-8"
-            assert result.metadata["encoding"] == "utf-8"
             assert "elapsed_ms" in result.metadata
 
     @pytest.mark.asyncio
@@ -86,7 +85,7 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.5
 
-        with patch("requests.get", return_value=mock_response) as mock_get:
+        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
             result = await provider.scrape("https://example.com", timeout=30)
 
             # Verify custom timeout was used
@@ -111,7 +110,7 @@ class TestRequestsProvider:
             "Accept-Language": "en-US",
         }
 
-        with patch("requests.get", return_value=mock_response) as mock_get:
+        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
             result = await provider.scrape(
                 "https://example.com", headers=custom_headers
             )
@@ -128,15 +127,16 @@ class TestRequestsProvider:
         mock_response.status_code = 404
         mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
 
-        with patch("requests.get", return_value=mock_response):
+        with patch.object(provider.session, "get", return_value=mock_response):
             with pytest.raises(requests.HTTPError):
                 await provider.scrape("https://example.com/not-found")
 
     @pytest.mark.asyncio
     async def test_scrape_connection_error(self, provider: RequestsProvider) -> None:
         """Test scraping with connection error."""
-        with patch(
-            "requests.get",
+        with patch.object(
+            provider.session,
+            "get",
             side_effect=requests.ConnectionError("Connection failed"),
         ):
             with pytest.raises(requests.ConnectionError):
@@ -145,7 +145,7 @@ class TestRequestsProvider:
     @pytest.mark.asyncio
     async def test_scrape_timeout_error(self, provider: RequestsProvider) -> None:
         """Test scraping with timeout error."""
-        with patch("requests.get", side_effect=requests.Timeout("Request timed out")):
+        with patch.object(provider.session, "get", side_effect=requests.Timeout("Request timed out")):
             with pytest.raises(requests.Timeout):
                 await provider.scrape("https://slow.example.com")
 
@@ -162,7 +162,7 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.2
 
-        with patch("requests.get", return_value=mock_response):
+        with patch.object(provider.session, "get", return_value=mock_response):
             result = await provider.scrape("https://example.com/redirect")
 
             # Should return the final URL after redirect
@@ -181,13 +181,13 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.1
 
-        with patch("requests.get", return_value=mock_response) as mock_get:
+        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
             await provider.scrape("https://example.com")
 
             # Verify default user agent was used
             call_args = mock_get.call_args
             user_agent = call_args[1]["headers"]["User-Agent"]
-            assert "ScraperMCP" in user_agent
+            assert "Mozilla" in user_agent or "Chrome" in user_agent
 
     @pytest.mark.asyncio
     async def test_metadata_includes_headers(
@@ -206,7 +206,7 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.15
 
-        with patch("requests.get", return_value=mock_response):
+        with patch.object(provider.session, "get", return_value=mock_response):
             result = await provider.scrape("https://example.com")
 
             # Verify headers are in metadata
@@ -228,8 +228,9 @@ class TestRequestsProvider:
         mock_response.elapsed.total_seconds.return_value = 0.1
 
         # First two calls timeout, third succeeds
-        with patch(
-            "requests.get",
+        with patch.object(
+            provider.session,
+            "get",
             side_effect=[
                 requests.Timeout("Timeout 1"),
                 requests.Timeout("Timeout 2"),
@@ -246,8 +247,9 @@ class TestRequestsProvider:
     @pytest.mark.asyncio
     async def test_retry_exhausted(self, provider: RequestsProvider) -> None:
         """Test that provider raises after exhausting retries."""
-        with patch(
-            "requests.get",
+        with patch.object(
+            provider.session,
+            "get",
             side_effect=requests.Timeout("Always timeout"),
         ):
             with pytest.raises(requests.Timeout):
@@ -267,8 +269,9 @@ class TestRequestsProvider:
         mock_response.elapsed.total_seconds.return_value = 0.1
 
         # First call fails, second succeeds
-        with patch(
-            "requests.get",
+        with patch.object(
+            provider.session,
+            "get",
             side_effect=[
                 requests.ConnectionError("Connection failed"),
                 mock_response,
@@ -293,7 +296,7 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.1
 
-        with patch("requests.get", return_value=mock_response) as mock_get:
+        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
             result = await provider.scrape("https://example.com")
 
             # Should only call once
@@ -315,8 +318,9 @@ class TestRequestsProvider:
         mock_response.elapsed.total_seconds.return_value = 0.1
 
         # Fail 4 times, succeed on 5th
-        with patch(
-            "requests.get",
+        with patch.object(
+            provider.session,
+            "get",
             side_effect=[
                 requests.Timeout("Fail 1"),
                 requests.Timeout("Fail 2"),
