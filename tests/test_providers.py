@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -16,7 +17,8 @@ class TestRequestsProvider:
     @pytest.fixture
     def provider(self) -> RequestsProvider:
         """Create a RequestsProvider instance."""
-        return RequestsProvider(timeout=10)
+        # Create provider with caching disabled for simpler testing
+        return RequestsProvider(timeout=10, cache_enabled=False)
 
     def test_supports_http_urls(self, provider: RequestsProvider) -> None:
         """Test that provider supports HTTP URLs."""
@@ -54,23 +56,29 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.123
 
+        # Mock run_in_executor to execute synchronously
+        async def mock_executor(executor, func):
+            return func()
+
         with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
-            result = await provider.scrape("https://example.com")
+            with patch("asyncio.get_event_loop") as mock_loop:
+                mock_loop.return_value.run_in_executor = mock_executor
+                result = await provider.scrape("https://example.com")
 
-            # Verify session.get was called correctly
-            mock_get.assert_called_once()
-            call_args = mock_get.call_args
-            assert call_args[0][0] == "https://example.com"
-            assert call_args[1]["timeout"] == 10
-            assert "User-Agent" in call_args[1]["headers"]
+                # Verify session.get was called correctly
+                mock_get.assert_called_once()
+                call_args = mock_get.call_args
+                assert call_args[0][0] == "https://example.com"
+                assert call_args[1]["timeout"] == 10
+                assert "User-Agent" in call_args[1]["headers"]
 
-            # Verify result
-            assert isinstance(result, ScrapeResult)
-            assert result.url == "https://example.com"
-            assert result.content == sample_html
-            assert result.status_code == 200
-            assert result.content_type == "text/html; charset=utf-8"
-            assert "elapsed_ms" in result.metadata
+                # Verify result
+                assert isinstance(result, ScrapeResult)
+                assert result.url == "https://example.com"
+                assert result.content == sample_html
+                assert result.status_code == 200
+                assert result.content_type == "text/html; charset=utf-8"
+                assert "elapsed_ms" in result.metadata
 
     @pytest.mark.asyncio
     async def test_scrape_with_custom_timeout(
@@ -85,12 +93,17 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.5
 
-        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
-            result = await provider.scrape("https://example.com", timeout=30)
+        async def mock_executor(executor, func):
+            return func()
 
-            # Verify custom timeout was used
-            call_args = mock_get.call_args
-            assert call_args[1]["timeout"] == 30
+        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
+            with patch("asyncio.get_event_loop") as mock_loop:
+                mock_loop.return_value.run_in_executor = mock_executor
+                result = await provider.scrape("https://example.com", timeout=30)
+
+                # Verify custom timeout was used
+                call_args = mock_get.call_args
+                assert call_args[1]["timeout"] == 30
 
     @pytest.mark.asyncio
     async def test_scrape_with_custom_headers(
@@ -110,15 +123,20 @@ class TestRequestsProvider:
             "Accept-Language": "en-US",
         }
 
-        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
-            result = await provider.scrape(
-                "https://example.com", headers=custom_headers
-            )
+        async def mock_executor(executor, func):
+            return func()
 
-            # Verify custom headers were used
-            call_args = mock_get.call_args
-            assert call_args[1]["headers"]["User-Agent"] == "CustomBot/1.0"
-            assert call_args[1]["headers"]["Accept-Language"] == "en-US"
+        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
+            with patch("asyncio.get_event_loop") as mock_loop:
+                mock_loop.return_value.run_in_executor = mock_executor
+                result = await provider.scrape(
+                    "https://example.com", headers=custom_headers
+                )
+
+                # Verify custom headers were used
+                call_args = mock_get.call_args
+                assert call_args[1]["headers"]["User-Agent"] == "CustomBot/1.0"
+                assert call_args[1]["headers"]["Accept-Language"] == "en-US"
 
     @pytest.mark.asyncio
     async def test_scrape_http_error(self, provider: RequestsProvider) -> None:
@@ -162,11 +180,16 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.2
 
-        with patch.object(provider.session, "get", return_value=mock_response):
-            result = await provider.scrape("https://example.com/redirect")
+        async def mock_executor(executor, func):
+            return func()
 
-            # Should return the final URL after redirect
-            assert result.url == "https://example.com/final"
+        with patch.object(provider.session, "get", return_value=mock_response):
+            with patch("asyncio.get_event_loop") as mock_loop:
+                mock_loop.return_value.run_in_executor = mock_executor
+                result = await provider.scrape("https://example.com/redirect")
+
+                # Should return the final URL after redirect
+                assert result.url == "https://example.com/final"
 
     @pytest.mark.asyncio
     async def test_default_user_agent(
@@ -181,13 +204,18 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.1
 
-        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
-            await provider.scrape("https://example.com")
+        async def mock_executor(executor, func):
+            return func()
 
-            # Verify default user agent was used
-            call_args = mock_get.call_args
-            user_agent = call_args[1]["headers"]["User-Agent"]
-            assert "Mozilla" in user_agent or "Chrome" in user_agent
+        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
+            with patch("asyncio.get_event_loop") as mock_loop:
+                mock_loop.return_value.run_in_executor = mock_executor
+                await provider.scrape("https://example.com")
+
+                # Verify default user agent was used
+                call_args = mock_get.call_args
+                user_agent = call_args[1]["headers"]["User-Agent"]
+                assert "Mozilla" in user_agent or "Chrome" in user_agent
 
     @pytest.mark.asyncio
     async def test_metadata_includes_headers(
@@ -206,13 +234,18 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.15
 
-        with patch.object(provider.session, "get", return_value=mock_response):
-            result = await provider.scrape("https://example.com")
+        async def mock_executor(executor, func):
+            return func()
 
-            # Verify headers are in metadata
-            assert "headers" in result.metadata
-            assert result.metadata["headers"]["Server"] == "nginx/1.18.0"
-            assert result.metadata["headers"]["X-Custom-Header"] == "test-value"
+        with patch.object(provider.session, "get", return_value=mock_response):
+            with patch("asyncio.get_event_loop") as mock_loop:
+                mock_loop.return_value.run_in_executor = mock_executor
+                result = await provider.scrape("https://example.com")
+
+                # Verify headers are in metadata
+                assert "headers" in result.metadata
+                assert result.metadata["headers"]["Server"] == "nginx/1.18.0"
+                assert result.metadata["headers"]["X-Custom-Header"] == "test-value"
 
     @pytest.mark.asyncio
     async def test_retry_on_timeout(
@@ -227,6 +260,9 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.1
 
+        async def mock_executor(executor, func):
+            return func()
+
         # First two calls timeout, third succeeds
         with patch.object(
             provider.session,
@@ -237,12 +273,14 @@ class TestRequestsProvider:
                 mock_response,
             ],
         ):
-            result = await provider.scrape("https://example.com", max_retries=3)
+            with patch("asyncio.get_event_loop") as mock_loop:
+                mock_loop.return_value.run_in_executor = mock_executor
+                result = await provider.scrape("https://example.com", max_retries=3)
 
-            # Should succeed after retries
-            assert result.status_code == 200
-            assert result.metadata["attempts"] == 3
-            assert result.metadata["retries"] == 2
+                # Should succeed after retries
+                assert result.status_code == 200
+                assert result.metadata["attempts"] == 3
+                assert result.metadata["retries"] == 2
 
     @pytest.mark.asyncio
     async def test_retry_exhausted(self, provider: RequestsProvider) -> None:
@@ -268,6 +306,9 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.1
 
+        async def mock_executor(executor, func):
+            return func()
+
         # First call fails, second succeeds
         with patch.object(
             provider.session,
@@ -277,11 +318,13 @@ class TestRequestsProvider:
                 mock_response,
             ],
         ):
-            result = await provider.scrape("https://example.com")
+            with patch("asyncio.get_event_loop") as mock_loop:
+                mock_loop.return_value.run_in_executor = mock_executor
+                result = await provider.scrape("https://example.com")
 
-            assert result.status_code == 200
-            assert result.metadata["attempts"] == 2
-            assert result.metadata["retries"] == 1
+                assert result.status_code == 200
+                assert result.metadata["attempts"] == 2
+                assert result.metadata["retries"] == 1
 
     @pytest.mark.asyncio
     async def test_no_retry_on_success(
@@ -296,13 +339,18 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.1
 
-        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
-            result = await provider.scrape("https://example.com")
+        async def mock_executor(executor, func):
+            return func()
 
-            # Should only call once
-            mock_get.assert_called_once()
-            assert result.metadata["attempts"] == 1
-            assert result.metadata["retries"] == 0
+        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
+            with patch("asyncio.get_event_loop") as mock_loop:
+                mock_loop.return_value.run_in_executor = mock_executor
+                result = await provider.scrape("https://example.com")
+
+                # Should only call once
+                mock_get.assert_called_once()
+                assert result.metadata["attempts"] == 1
+                assert result.metadata["retries"] == 0
 
     @pytest.mark.asyncio
     async def test_custom_max_retries(
@@ -317,6 +365,9 @@ class TestRequestsProvider:
         mock_response.encoding = "utf-8"
         mock_response.elapsed.total_seconds.return_value = 0.1
 
+        async def mock_executor(executor, func):
+            return func()
+
         # Fail 4 times, succeed on 5th
         with patch.object(
             provider.session,
@@ -329,8 +380,10 @@ class TestRequestsProvider:
                 mock_response,
             ],
         ):
-            result = await provider.scrape("https://example.com", max_retries=5)
+            with patch("asyncio.get_event_loop") as mock_loop:
+                mock_loop.return_value.run_in_executor = mock_executor
+                result = await provider.scrape("https://example.com", max_retries=5)
 
-            assert result.status_code == 200
-            assert result.metadata["attempts"] == 5
-            assert result.metadata["retries"] == 4
+                assert result.status_code == 200
+                assert result.metadata["attempts"] == 5
+                assert result.metadata["retries"] == 4

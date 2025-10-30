@@ -287,7 +287,7 @@ class RequestsProvider(ScraperProvider):
                     metadata["scrapeops_render_js"] = self.scrapeops_render_js
 
                 result = ScrapeResult(
-                    url=original_url,  # Use original URL, not proxy URL
+                    url=response.url,  # Use final URL after redirects
                     content=response.text,
                     status_code=response.status_code,
                     content_type=response.headers.get("Content-Type"),
