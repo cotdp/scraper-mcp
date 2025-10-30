@@ -6,11 +6,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from scraper_mcp.cache import clear_all_cache, clear_expired_cache, get_cache_stats
 from scraper_mcp.providers import ScrapeResult
 from scraper_mcp.server import (
-    cache_clear_all,
-    cache_clear_expired,
-    cache_stats,
     scrape_extract_links,
     scrape_url,
     scrape_url_markdown,
@@ -650,15 +648,19 @@ class TestCssSelectorFiltering:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_url("https://example.com", css_selector="meta")
+            result = await scrape_url(["https://example.com"], css_selector="meta")
+
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
 
             # Should only contain meta tags
-            assert "<meta" in result.content
-            assert "<article" not in result.content
+            assert "<meta" in result.results[0].data.content
+            assert "<article" not in result.results[0].data.content
             # Should have filter metadata
-            assert "css_selector_applied" in result.metadata
-            assert result.metadata["css_selector_applied"] == "meta"
-            assert result.metadata["elements_matched"] == 3
+            assert "css_selector_applied" in result.results[0].data.metadata
+            assert result.results[0].data.metadata["css_selector_applied"] == "meta"
+            assert result.results[0].data.metadata["elements_matched"] == 3
 
     @pytest.mark.asyncio
     async def test_scrape_url_markdown_with_css_selector(
@@ -679,15 +681,19 @@ class TestCssSelectorFiltering:
             mock_get_provider.return_value = mock_provider
 
             result = await scrape_url_markdown(
-                "https://example.com", css_selector=".main-content"
+                ["https://example.com"], css_selector=".main-content"
             )
 
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
+
             # Should only contain article content in markdown
-            assert "Article Title" in result.content
-            assert "Footer content" not in result.content
+            assert "Article Title" in result.results[0].data.content
+            assert "Footer content" not in result.results[0].data.content
             # Should have filter metadata
-            assert "css_selector_applied" in result.metadata
-            assert result.metadata["css_selector_applied"] == ".main-content"
+            assert "css_selector_applied" in result.results[0].data.metadata
+            assert result.results[0].data.metadata["css_selector_applied"] == ".main-content"
 
     @pytest.mark.asyncio
     async def test_scrape_url_text_with_css_selector(
@@ -708,13 +714,17 @@ class TestCssSelectorFiltering:
             mock_get_provider.return_value = mock_provider
 
             result = await scrape_url_text(
-                "https://example.com", css_selector="article"
+                ["https://example.com"], css_selector="article"
             )
 
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
+
             # Should only contain article text
-            assert "Article Title" in result.content
-            assert "Article paragraph" in result.content
-            assert "Footer content" not in result.content
+            assert "Article Title" in result.results[0].data.content
+            assert "Article paragraph" in result.results[0].data.content
+            assert "Footer content" not in result.results[0].data.content
 
     @pytest.mark.asyncio
     async def test_extract_links_with_css_selector(
@@ -735,14 +745,18 @@ class TestCssSelectorFiltering:
             mock_get_provider.return_value = mock_provider
 
             result = await scrape_extract_links(
-                "https://example.com", css_selector="nav"
+                ["https://example.com"], css_selector="nav"
             )
 
+            # Should return BatchLinksResponse
+            assert result.total == 1
+            assert result.successful == 1
+
             # Should only contain nav links
-            assert result.count == 2  # Home and About links only
-            assert any(l["text"] == "Home" for l in result.links)
-            assert any(l["text"] == "About" for l in result.links)
-            assert not any(l["text"] == "Advertisement" for l in result.links)
+            assert result.results[0].data.count == 2  # Home and About links only
+            assert any(l["text"] == "Home" for l in result.results[0].data.links)
+            assert any(l["text"] == "About" for l in result.results[0].data.links)
+            assert not any(l["text"] == "Advertisement" for l in result.results[0].data.links)
 
     @pytest.mark.asyncio
     async def test_css_selector_with_multiple_elements(
@@ -762,12 +776,16 @@ class TestCssSelectorFiltering:
             mock_provider.scrape = AsyncMock(return_value=mock_result)
             mock_get_provider.return_value = mock_provider
 
-            result = await scrape_url("https://example.com", css_selector="img, video")
+            result = await scrape_url(["https://example.com"], css_selector="img, video")
+
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
 
             # Should contain both img and video tags
-            assert "<img" in result.content
-            assert "<video" in result.content
-            assert result.metadata["elements_matched"] == 2
+            assert "<img" in result.results[0].data.content
+            assert "<video" in result.results[0].data.content
+            assert result.results[0].data.metadata["elements_matched"] == 2
 
     @pytest.mark.asyncio
     async def test_css_selector_no_matches(
@@ -788,12 +806,16 @@ class TestCssSelectorFiltering:
             mock_get_provider.return_value = mock_provider
 
             result = await scrape_url(
-                "https://example.com", css_selector=".nonexistent"
+                ["https://example.com"], css_selector=".nonexistent"
             )
 
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
+
             # Should return empty content
-            assert result.content == ""
-            assert result.metadata["elements_matched"] == 0
+            assert result.results[0].data.content == ""
+            assert result.results[0].data.metadata["elements_matched"] == 0
 
     @pytest.mark.asyncio
     async def test_css_selector_with_strip_tags(
@@ -815,56 +837,43 @@ class TestCssSelectorFiltering:
 
             # First filter to article, then strip img tags
             result = await scrape_url_markdown(
-                "https://example.com",
+                ["https://example.com"],
                 css_selector="article",
                 strip_tags=["img", "video"],
             )
 
+            # Should return BatchScrapeResponse
+            assert result.total == 1
+            assert result.successful == 1
+
             # Should have article content but no images/videos
-            assert "Article Title" in result.content
-            assert "Article paragraph" in result.content
+            assert "Article Title" in result.results[0].data.content
+            assert "Article paragraph" in result.results[0].data.content
             # Images and videos should be stripped from markdown
-            assert "![" not in result.content or "article-image.jpg" not in result.content
+            assert "![" not in result.results[0].data.content or "article-image.jpg" not in result.results[0].data.content
 
 
 class TestCacheManagementTools:
     """Tests for cache management tools."""
 
-    @pytest.mark.asyncio
-    async def test_cache_stats_available(self) -> None:
+    def test_cache_stats_available(self) -> None:
         """Test getting cache statistics when cache is available."""
-        result = await cache_stats()
+        result = get_cache_stats()
 
         # Should return cache statistics
-        assert "total_responses" in result or "error" in result
+        assert isinstance(result, dict)
+        assert "size_bytes" in result or "error" in result
 
-        # If cache is available, check for expected fields
-        if "total_responses" in result:
-            assert "cache_size_bytes" in result
-            assert "cache_size_mb" in result
-            assert "cache_path" in result
-
-    @pytest.mark.asyncio
-    async def test_cache_clear_expired_available(self) -> None:
+    def test_cache_clear_expired_available(self) -> None:
         """Test clearing expired cache entries."""
-        result = await cache_clear_expired()
+        removed = clear_expired_cache()
 
-        # Should return success or error status
-        assert "status" in result
+        # Should return integer count of removed entries
+        assert isinstance(removed, int)
+        assert removed >= 0
 
-        # If cache is available, should have removed count
-        if result["status"] == "success":
-            assert "expired_entries_removed" in result
-            assert isinstance(result["expired_entries_removed"], int)
-
-    @pytest.mark.asyncio
-    async def test_cache_clear_all_available(self) -> None:
+    def test_cache_clear_all_available(self) -> None:
         """Test clearing all cache entries."""
-        result = await cache_clear_all()
-
-        # Should return status
-        assert "status" in result
-        assert "message" in result
-
-        # Status should be success or error
-        assert result["status"] in ["success", "error"]
+        # Should not raise any exceptions
+        clear_all_cache()
+        # If we get here, it worked
