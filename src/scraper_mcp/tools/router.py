@@ -156,10 +156,38 @@ async def cache_clear_all() -> dict[str, str]:
 def register_scraping_tools(mcp: FastMCP) -> None:
     """Register core scraping tools on the MCP server.
 
+    Tool Registration Pattern:
+    -------------------------
+    This function uses FastMCP's decorator pattern to register async functions
+    as MCP tools. The pattern `mcp.tool()(function)` is equivalent to:
+
+        @mcp.tool()
+        async def function(...):
+            ...
+
+    By using the functional approach, we can:
+    1. Define tools in this module with proper type hints
+    2. Keep business logic separate in service.py
+    3. Register all tools in one place for clarity
+    4. Make tools importable for testing
+
+    The MCP framework automatically:
+    - Extracts function signatures for tool schemas
+    - Generates OpenAPI-compatible documentation from docstrings
+    - Handles JSON serialization of Pydantic models
+    - Routes incoming tool calls to the registered functions
+
     Args:
         mcp: FastMCP server instance to register tools on
+
+    Example:
+        >>> from mcp.server.fastmcp import FastMCP
+        >>> mcp = FastMCP("Scraper")
+        >>> register_scraping_tools(mcp)
+        >>> # Tools are now available via MCP protocol
     """
-    # Register tool functions with MCP decorator
+    # Register core scraping tools
+    # Each tool is exposed via MCP and documented in the API schema
     mcp.tool()(scrape_url)
     mcp.tool()(scrape_url_markdown)
     mcp.tool()(scrape_url_text)
@@ -169,10 +197,19 @@ def register_scraping_tools(mcp: FastMCP) -> None:
 def register_cache_tools(mcp: FastMCP) -> None:
     """Register optional cache management tools on the MCP server.
 
+    These tools are only registered when ENABLE_CACHE_TOOLS=true in the
+    environment. They provide administrative access to cache operations
+    and should be used carefully in production environments.
+
     Args:
         mcp: FastMCP server instance to register tools on
+
+    Note:
+        Cache tools are disabled by default for security. Enable them only
+        in development environments or when explicit cache management is needed.
     """
-    # Register cache tool functions with MCP decorator
+    # Register optional cache management tools
+    # These provide direct cache access and statistics
     mcp.tool()(cache_stats)
     mcp.tool()(cache_clear_expired)
     mcp.tool()(cache_clear_all)
