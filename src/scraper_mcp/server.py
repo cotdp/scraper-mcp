@@ -43,7 +43,6 @@ mcp = FastMCP(
 class ScrapeResponse(BaseModel):
     """Response model for scrape operations."""
 
-    url: str = Field(description="The final URL after any redirects")
     content: str = Field(description="The scraped content")
     status_code: int = Field(description="HTTP status code")
     content_type: str | None = Field(description="Content-Type header value")
@@ -53,7 +52,6 @@ class ScrapeResponse(BaseModel):
 class LinksResponse(BaseModel):
     """Response model for link extraction."""
 
-    url: str = Field(description="The URL that was scraped")
     links: list[dict[str, str]] = Field(description="List of extracted links")
     count: int = Field(description="Total number of links found")
 
@@ -155,6 +153,64 @@ def get_config(key: str, default: Any = None) -> Any:
     return _runtime_config.get(key, default)
 
 
+def clean_metadata(metadata: dict[str, Any], css_selector: str | None = None, elements_matched: int | None = None) -> dict[str, Any]:
+    """Clean metadata to only include meaningful optional fields.
+
+    Args:
+        metadata: Original metadata dictionary
+        css_selector: CSS selector if applied
+        elements_matched: Number of elements matched by selector
+
+    Returns:
+        Cleaned metadata dictionary with only meaningful fields
+    """
+    cleaned = {}
+
+    # Always include elapsed_ms if present
+    if "elapsed_ms" in metadata:
+        cleaned["elapsed_ms"] = metadata["elapsed_ms"]
+
+    # Only include attempts if > 1
+    attempts = metadata.get("attempts", 1)
+    if attempts > 1:
+        cleaned["attempts"] = attempts
+
+    # Only include retries if > 0
+    retries = metadata.get("retries", 0)
+    if retries > 0:
+        cleaned["retries"] = retries
+
+    # Only include from_cache if true
+    if metadata.get("from_cache"):
+        cleaned["from_cache"] = True
+
+    # Only include proxy_used if true
+    if metadata.get("proxy_used"):
+        cleaned["proxy_used"] = True
+        if "proxy_config" in metadata:
+            cleaned["proxy_config"] = metadata["proxy_config"]
+
+    # Only include ssl_verify if false (true is the secure default)
+    if "ssl_verify" in metadata and not metadata["ssl_verify"]:
+        cleaned["ssl_verify"] = False
+
+    # Only include CSS selector info if selector was applied
+    if css_selector:
+        cleaned["css_selector_applied"] = css_selector
+        if elements_matched is not None:
+            cleaned["elements_matched"] = elements_matched
+
+    # Include page_metadata if present (for markdown/text extractions)
+    if "page_metadata" in metadata:
+        cleaned["page_metadata"] = metadata["page_metadata"]
+
+    # Include headers if present (controlled by include_headers parameter)
+    if "headers" in metadata:
+        cleaned["headers"] = metadata["headers"]
+
+    return cleaned
+
+
 def get_provider(url: str) -> ScraperProvider:
     """Get the appropriate provider for a URL.
 
@@ -208,30 +264,26 @@ async def scrape_single_url_safe(
             if css_selector:
                 content, elements_matched = filter_html_by_selector(content, css_selector)
 
-            # Add filter metadata
-            metadata = result.metadata.copy()
-            if css_selector:
-                metadata["css_selector_applied"] = css_selector
-                metadata["elements_matched"] = elements_matched
-
             # Remove headers if not requested
             if not include_headers:
-                metadata.pop("headers", None)
+                result.metadata.pop("headers", None)
+
+            # Clean metadata to remove redundant fields
+            metadata = clean_metadata(result.metadata, css_selector, elements_matched)
 
             # Record successful request metrics
             record_request(
                 url=url,
                 success=True,
                 status_code=result.status_code,
-                elapsed_ms=metadata.get("elapsed_ms"),
-                attempts=metadata.get("attempts", 1),
+                elapsed_ms=result.metadata.get("elapsed_ms"),
+                attempts=result.metadata.get("attempts", 1),
             )
 
             return ScrapeResultItem(
                 url=url,
                 success=True,
                 data=ScrapeResponse(
-                    url=result.url,
                     content=content,
                     status_code=result.status_code,
                     content_type=result.content_type,
@@ -340,15 +392,15 @@ async def scrape_single_url_markdown_safe(
             markdown_content = html_to_markdown(content, strip_tags=strip_tags)
             page_metadata = extract_metadata(content)
 
-            # Add filter metadata
+            # Add page metadata
             metadata = {**result.metadata, "page_metadata": page_metadata}
-            if css_selector:
-                metadata["css_selector_applied"] = css_selector
-                metadata["elements_matched"] = elements_matched
 
             # Remove headers if not requested
             if not include_headers:
                 metadata.pop("headers", None)
+
+            # Clean metadata to remove redundant fields
+            metadata = clean_metadata(metadata, css_selector, elements_matched)
 
             # Record successful request metrics
             record_request(
@@ -473,15 +525,15 @@ async def scrape_single_url_text_safe(
             text_content = html_to_text(content, strip_tags=strip_tags)
             page_metadata = extract_metadata(content)
 
-            # Add filter metadata
+            # Add page metadata
             metadata = {**result.metadata, "page_metadata": page_metadata}
-            if css_selector:
-                metadata["css_selector_applied"] = css_selector
-                metadata["elements_matched"] = elements_matched
 
             # Remove headers if not requested
             if not include_headers:
                 metadata.pop("headers", None)
+
+            # Clean metadata to remove redundant fields
+            metadata = clean_metadata(metadata, css_selector, elements_matched)
 
             # Record successful request metrics
             record_request(

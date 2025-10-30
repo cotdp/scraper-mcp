@@ -268,7 +268,6 @@ class RequestsProvider(ScraperProvider):
                 # Extract metadata including retry info
                 metadata = {
                     "headers": dict(response.headers),
-                    "encoding": response.encoding,
                     "elapsed_ms": response.elapsed.total_seconds() * 1000,
                     "attempts": attempt + 1,
                     "retries": attempt,
