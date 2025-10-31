@@ -935,7 +935,7 @@
                 const text = await response.text();
 
                 // Parse SSE response - extract JSON from data: line
-                const lines = text.trim().split('\\n');
+                const lines = text.trim().split('\n');
                 let result = null;
 
                 for (let i = 0; i < lines.length; i++) {
@@ -964,7 +964,9 @@
                     responseStatus.textContent = `Completed in ${elapsed}ms`;
                     responseJson.querySelector('code').textContent = JSON.stringify(result, null, 2);
                 } else {
-                    throw new Error('No valid response received');
+                    // Debug: show raw response if parsing failed
+                    console.error('Failed to parse response:', text);
+                    throw new Error('No valid response received. Check browser console for raw response.');
                 }
             } catch (error) {
                 responseStatus.textContent = 'Error';
