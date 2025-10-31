@@ -16,7 +16,7 @@ Pull and run the pre-built image from Docker Hub:
 docker run -d -p 8000:8000 --name scraper-mcp cotdp/scraper-mcp:latest
 
 # Add the MCP server to Claude Code
-claude mcp add --transport http scraper http://localhost:8000 --scope user
+claude mcp add --transport http scraper http://localhost:8000/mcp --scope user
 
 # View logs
 docker logs -f scraper-mcp
