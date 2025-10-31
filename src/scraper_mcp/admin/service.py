@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
 from scraper_mcp.cache import clear_all_cache, get_cache_stats
 from scraper_mcp.metrics import get_metrics
+
+logger = logging.getLogger(__name__)
 
 # Default concurrency limit for batch operations
 DEFAULT_CONCURRENCY = 8
@@ -72,9 +75,12 @@ def get_stats() -> dict[str, Any]:
     stats = metrics.to_dict()
 
     # Add cache stats if available
+    # Potential failures: cache manager initialization (OSError, PermissionError),
+    # cache operations (RuntimeError from diskcache), or missing attributes
     try:
         stats["cache"] = get_cache_stats()
-    except Exception:
+    except (OSError, PermissionError, RuntimeError, AttributeError) as e:
+        logger.debug(f"Cache stats unavailable: {e}")
         stats["cache"] = {"error": "Cache stats unavailable"}
 
     return stats

@@ -84,10 +84,12 @@ class RequestsProvider(ScraperProvider):
         Returns:
             True if the URL uses http or https scheme
         """
+        # URL parsing can fail with ValueError (malformed URL),
+        # TypeError (url is None/not string), or AttributeError (missing attributes)
         try:
             parsed = urlparse(url)
             return parsed.scheme in ("http", "https")
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             return False
 
     def _build_scrapeops_url(self, target_url: str) -> str:
