@@ -7,6 +7,36 @@
 
 A context-optimized Model Context Protocol (MCP) server for efficient web scraping. This server provides AI tools with pre-processed, filtered web content—reducing token usage by converting raw HTML to markdown/text and applying CSS selectors server-side, so LLMs only receive the data they actually need.
 
+## Instant Setup with Claude Code
+
+Pull and run the pre-built image from Docker Hub:
+
+```bash
+# Using Docker Hub
+docker run -d -p 8000:8000 --name scraper-mcp cotdp/scraper-mcp:latest
+
+# Add the MCP server to Claude Code
+claude mcp add --transport http scraper http://localhost:8000 --scope user
+
+# View logs
+docker logs -f scraper-mcp
+
+# Stop the server
+docker stop scraper-mcp && docker rm scraper-mcp
+```
+
+Try it out in Claude Code:
+```
+> scrape https://cutler.sg/
+~ scrapes the homepage, likely defaults to markdown conversion
+
+> scrape and filter <url> elements from https://cutler.sg/sitemap.xml
+~ returns about 100 urls
+
+> scrape and filter all <title> elements from those urls
+~ fetches only the titles from all ~100 urls
+```
+
 ## Features
 
 ### Context Optimization
