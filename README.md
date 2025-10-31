@@ -1,6 +1,9 @@
 # Scraper MCP
 
 [![CI](https://github.com/cotdp/scraper-mcp/workflows/CI/badge.svg)](https://github.com/cotdp/scraper-mcp/actions/workflows/ci.yml)
+[![Docker](https://github.com/cotdp/scraper-mcp/workflows/Build%20and%20Push%20Docker%20Images/badge.svg)](https://github.com/cotdp/scraper-mcp/actions/workflows/docker-publish.yml)
+[![Docker Hub](https://img.shields.io/docker/v/cotdp/scraper-mcp?label=Docker%20Hub)](https://hub.docker.com/r/cotdp/scraper-mcp)
+[![GHCR](https://img.shields.io/badge/GHCR-latest-blue)](https://github.com/cotdp/scraper-mcp/pkgs/container/scraper-mcp)
 
 A context-optimized Model Context Protocol (MCP) server for efficient web scraping. This server provides AI tools with pre-processed, filtered web content—reducing token usage by converting raw HTML to markdown/text and applying CSS selectors server-side, so LLMs only receive the data they actually need.
 
@@ -308,6 +311,25 @@ ruff format .
 ```
 
 ## Docker Deployment
+
+### Pre-Built Images
+
+Pull the latest pre-built image from Docker Hub or GitHub Container Registry:
+
+```bash
+# Docker Hub
+docker pull cotdp/scraper-mcp:latest
+
+# GitHub Container Registry
+docker pull ghcr.io/cotdp/scraper-mcp:latest
+```
+
+**Available tags:**
+- `latest` - Latest stable release
+- `0.1.0`, `0.1`, `0` - Semantic version tags
+- `main-<sha>` - Latest main branch build
+
+**Multi-platform support:** Both `linux/amd64` and `linux/arm64` architectures are available.
 
 ### Build Docker Image
 
