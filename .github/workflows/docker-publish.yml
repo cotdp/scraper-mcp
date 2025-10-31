@@ -86,14 +86,6 @@ jobs:
           provenance: false
           sbom: false
 
-      - name: Generate artifact attestation for GHCR
-        if: github.event_name != 'pull_request'
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: ${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME_GHCR }}
-          subject-digest: ${{ steps.build-and-push.outputs.digest }}
-          push-to-registry: true
-
       - name: Output image details
         if: github.event_name != 'pull_request'
         run: |
