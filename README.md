@@ -165,35 +165,76 @@ ENABLE_CACHE_TOOLS=false           # Expose cache management tools
 
 See `.env.example` for complete configuration reference with detailed comments.
 
-## Quick Start with Docker Compose
+## Quick Start
 
-### 1. Configure Environment
+### Option 1: Docker Run (Simplest)
 
-Create your `.env` file with desired settings (see Configuration section above):
-
-```bash
-cp .env.example .env
-# Edit .env with your proxy or ScrapeOps settings
-```
-
-### 2. Launch the Server
+Pull and run the pre-built image from Docker Hub or GitHub Container Registry:
 
 ```bash
-# Build and start the server in detached mode
-docker-compose up -d
+# Using Docker Hub
+docker run -d -p 8000:8000 --name scraper-mcp cotdp/scraper-mcp:latest
 
-# View logs (optional)
-docker-compose logs -f scraper-mcp
+# OR using GitHub Container Registry
+docker run -d -p 8000:8000 --name scraper-mcp ghcr.io/cotdp/scraper-mcp:latest
 
-# Check health status
-docker-compose ps
+# View logs
+docker logs -f scraper-mcp
+
+# Stop the server
+docker stop scraper-mcp && docker rm scraper-mcp
 ```
 
 The server will be available at:
 - **MCP Endpoint**: `http://localhost:8000/mcp` (for AI clients)
 - **Dashboard**: `http://localhost:8000/` (web interface)
 
-### 3. Stop the Server
+### Option 2: Docker Compose (Recommended for Production)
+
+For persistent storage, custom configuration, and easier management:
+
+**1. Create a `docker-compose.yml` file:**
+
+```yaml
+services:
+  scraper-mcp:
+    image: cotdp/scraper-mcp:latest  # or ghcr.io/cotdp/scraper-mcp:latest
+    container_name: scraper-mcp
+    ports:
+      - "8000:8000"
+    environment:
+      - TRANSPORT=streamable-http
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      - cache:/app/cache
+    restart: unless-stopped
+
+volumes:
+  cache:
+```
+
+**2. (Optional) Create a `.env` file for proxy or ScrapeOps configuration:**
+
+```bash
+cp .env.example .env
+# Edit .env with your proxy or ScrapeOps settings
+```
+
+**3. Start the server:**
+
+```bash
+# Start in detached mode
+docker-compose up -d
+
+# View logs
+docker-compose logs -f scraper-mcp
+
+# Check status
+docker-compose ps
+```
+
+**4. Stop the server:**
 
 ```bash
 # Stop and remove containers
@@ -202,6 +243,10 @@ docker-compose down
 # Stop, remove containers, and clear cache volume
 docker-compose down -v
 ```
+
+The server will be available at:
+- **MCP Endpoint**: `http://localhost:8000/mcp` (for AI clients)
+- **Dashboard**: `http://localhost:8000/` (web interface)
 
 ## Available Tools
 
@@ -310,17 +355,19 @@ ruff check .
 ruff format .
 ```
 
-## Docker Deployment
+## Docker Images
 
-### Pre-Built Images
+### Pre-Built Images (Recommended)
 
-Pull the latest pre-built image from Docker Hub or GitHub Container Registry:
+Multi-platform images are automatically built and published on every release:
 
+**Docker Hub:**
 ```bash
-# Docker Hub
 docker pull cotdp/scraper-mcp:latest
+```
 
-# GitHub Container Registry
+**GitHub Container Registry:**
+```bash
 docker pull ghcr.io/cotdp/scraper-mcp:latest
 ```
 
@@ -329,27 +376,28 @@ docker pull ghcr.io/cotdp/scraper-mcp:latest
 - `0.1.0`, `0.1`, `0` - Semantic version tags
 - `main-<sha>` - Latest main branch build
 
-**Multi-platform support:** Both `linux/amd64` and `linux/arm64` architectures are available.
+**Supported platforms:** `linux/amd64` and `linux/arm64`
 
-### Build Docker Image
+See the [Quick Start](#quick-start) section for usage instructions.
 
-```bash
-docker build -t scraper-mcp:latest .
-```
+### Building from Source
 
-### Run with Docker
+If you need to customize the image or build locally:
 
 ```bash
-# Run with default settings (streamable-http on port 8000)
-docker run -p 8000:8000 scraper-mcp:latest
+# Clone the repository
+git clone https://github.com/cotdp/scraper-mcp.git
+cd scraper-mcp
 
-# Run with custom settings
-docker run -p 8080:8080 scraper-mcp:latest streamable-http 0.0.0.0 8080
+# Build the image
+docker build -t scraper-mcp:custom .
+
+# Run with default settings
+docker run -p 8000:8000 scraper-mcp:custom
+
+# Or use docker-compose.yml (modify image: line to use scraper-mcp:custom)
+docker-compose up -d
 ```
-
-### Docker Compose
-
-See the [Quick Start with Docker Compose](#quick-start-with-docker-compose) section above for complete instructions including configuration, launching, and dashboard access.
 
 ## Connecting from Claude Desktop
 
@@ -371,21 +419,43 @@ Once connected, Claude can use all four scraping tools. You can monitor requests
 
 ```
 scraper-mcp/
-├── src/
-│   └── scraper_mcp/
-│       ├── __init__.py
-│       ├── __main__.py
-│       ├── server.py              # Main MCP server
-│       ├── utils.py               # HTML processing utilities
-│       └── providers/
-│           ├── __init__.py
-│           ├── base.py            # Provider interface
-│           └── requests_provider.py  # Basic HTTP provider
-├── tests/
-│   └── __init__.py
-├── Dockerfile
-├── docker-compose.yml
-├── pyproject.toml
+├── src/scraper_mcp/
+│   ├── __init__.py
+│   ├── __main__.py
+│   ├── server.py                  # Main MCP server entry point
+│   ├── admin/                     # Admin API (config, stats, cache)
+│   │   ├── router.py              # HTTP endpoint handlers
+│   │   └── service.py             # Business logic
+│   ├── dashboard/                 # Web dashboard
+│   │   ├── router.py              # Dashboard routes
+│   │   └── templates/
+│   │       └── dashboard.html     # Monitoring UI
+│   ├── tools/                     # MCP scraping tools
+│   │   ├── router.py              # Tool registration
+│   │   └── service.py             # Scraping implementations
+│   ├── models/                    # Pydantic data models
+│   │   ├── scrape.py              # Scrape request/response models
+│   │   └── links.py               # Link extraction models
+│   ├── providers/                 # Scraping backend providers
+│   │   ├── base.py                # Abstract provider interface
+│   │   └── requests_provider.py  # HTTP provider (requests library)
+│   ├── core/
+│   │   └── providers.py           # Provider registry and selection
+│   ├── cache.py                   # Request caching (disk-based)
+│   ├── cache_manager.py           # Cache lifecycle management
+│   ├── metrics.py                 # Request/retry metrics tracking
+│   └── utils.py                   # HTML processing utilities
+├── tests/                         # Pytest test suite
+│   ├── test_server.py
+│   ├── test_tools.py
+│   └── test_utils.py
+├── .github/workflows/
+│   ├── ci.yml                     # CI/CD: tests, linting
+│   └── docker-publish.yml         # Docker image publishing
+├── Dockerfile                     # Multi-stage production build
+├── docker-compose.yml             # Local development setup
+├── pyproject.toml                 # Python dependencies (uv)
+├── .env.example                   # Environment configuration template
 └── README.md
 ```
 
@@ -650,4 +720,4 @@ This project is licensed under the MIT License.
 
 ---
 
-_Last updated: October 30, 2025_
+_Last updated: October 31, 2025_
