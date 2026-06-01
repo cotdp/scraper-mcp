@@ -35,12 +35,48 @@ python -m scraper_mcp --disable-resources --disable-prompts
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PERPLEXITY_API_KEY` | - | API key (enables AI tools when set) |
-| `PERPLEXITY_MODEL` | sonar | Default model |
+| `PERPLEXITY_API_KEY` | - | API key (enables AI tools when set). Overridable at runtime. |
+| `PERPLEXITY_ENABLED_MODELS` | `sonar` | Comma-separated allowlist of usable models (opt-in). |
+| `PERPLEXITY_MODEL` | sonar | Default model for the `perplexity` tool |
+| `PERPLEXITY_REASONING_MODEL` | sonar-reasoning-pro | Model used by the `perplexity_reason` tool |
 | `PERPLEXITY_TEMPERATURE` | 0.3 | Default temperature |
 | `PERPLEXITY_MAX_TOKENS` | 4000 | Default max tokens |
 
 Get your API key from [Perplexity AI](https://www.perplexity.ai/).
+
+#### Model allowlist (opt-in)
+
+To control cost, only `sonar` is enabled by default. The more expensive models —
+`sonar-pro`, `sonar-reasoning`, `sonar-reasoning-pro`, and `sonar-deep-research` —
+must be explicitly enabled. Requesting a disabled model returns an error **without**
+making a (billable) API call.
+
+> ⚠️ Because `sonar-reasoning-pro` is disabled by default, the `perplexity_reason`
+> tool returns a "model not enabled" error until you opt that model in.
+
+Enable models at startup via the environment:
+
+```bash
+PERPLEXITY_ENABLED_MODELS=sonar,sonar-pro,sonar-reasoning-pro
+```
+
+…or override the API key and enabled models at runtime via the admin API (changes
+are not persisted and reset on restart):
+
+```bash
+# Toggle which models are enabled
+curl -X POST http://localhost:8000/api/config \
+  -H 'Content-Type: application/json' \
+  -d '{"config": {"perplexity_enabled_models": ["sonar", "sonar-pro"]}}'
+
+# Override the API key (the GET endpoint returns it masked, e.g. "pplx...7890")
+curl -X POST http://localhost:8000/api/config \
+  -H 'Content-Type: application/json' \
+  -d '{"config": {"perplexity_api_key": "pplx-..."}}'
+```
+
+Unknown model names are rejected. Available models are advertised under
+`available_perplexity_models` in `GET /api/config`.
 
 ---
 

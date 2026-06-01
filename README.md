@@ -39,7 +39,10 @@ Try it:
 ### Perplexity AI Integration
 - **Web search**: AI-powered search with citations (`perplexity` tool)
 - **Reasoning**: Complex analysis with step-by-step reasoning (`perplexity_reason` tool)
-- Requires `PERPLEXITY_API_KEY` environment variable
+- Requires `PERPLEXITY_API_KEY` environment variable (overridable at runtime)
+- **Model allowlist (opt-in)**: only `sonar` is enabled by default; `sonar-pro`,
+  `sonar-reasoning`, `sonar-reasoning-pro`, and `sonar-deep-research` must be enabled
+  explicitly to control cost (see [docs/CONFIGURATION.md](docs/CONFIGURATION.md#perplexity-ai))
 
 ### Monitoring Dashboard
 - Real-time request statistics and cache metrics

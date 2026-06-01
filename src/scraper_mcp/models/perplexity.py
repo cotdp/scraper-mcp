@@ -6,6 +6,19 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+# All known Perplexity Sonar models. Used to validate the enabled-models allowlist.
+PERPLEXITY_MODELS: tuple[str, ...] = (
+    "sonar",
+    "sonar-pro",
+    "sonar-reasoning",
+    "sonar-reasoning-pro",
+    "sonar-deep-research",
+)
+
+# Models enabled by default. Only the cheap `sonar` model is on out of the box;
+# the more expensive models must be enabled explicitly (opt-in) to control cost.
+DEFAULT_ENABLED_PERPLEXITY_MODELS: tuple[str, ...] = ("sonar",)
+
 
 class PerplexityResponse(BaseModel):
     """Response model for Perplexity AI operations."""

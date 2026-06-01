@@ -8,11 +8,34 @@ from typing import Any
 
 from scraper_mcp.cache import clear_all_cache, get_cache_stats
 from scraper_mcp.metrics import get_metrics
+from scraper_mcp.models.perplexity import (
+    DEFAULT_ENABLED_PERPLEXITY_MODELS,
+    PERPLEXITY_MODELS,
+)
 
 logger = logging.getLogger(__name__)
 
 # Default concurrency limit for batch operations
 DEFAULT_CONCURRENCY = 8
+
+
+def _parse_enabled_models(raw: str | None) -> list[str]:
+    """Parse a comma-separated PERPLEXITY_ENABLED_MODELS env value.
+
+    Unknown model names are ignored. Falls back to the default allowlist when
+    the value is empty or yields no valid models.
+
+    Args:
+        raw: Comma-separated model names (e.g. "sonar,sonar-pro")
+
+    Returns:
+        Ordered list of valid, enabled model names
+    """
+    if not raw:
+        return list(DEFAULT_ENABLED_PERPLEXITY_MODELS)
+    models = [m.strip() for m in raw.split(",") if m.strip() in PERPLEXITY_MODELS]
+    return models or list(DEFAULT_ENABLED_PERPLEXITY_MODELS)
+
 
 # Runtime configuration overrides (not persisted)
 _runtime_config: dict[str, Any] = {
@@ -27,6 +50,9 @@ _runtime_config: dict[str, Any] = {
     "https_proxy": "",
     "no_proxy": "",
     "verify_ssl": False,  # SSL certificate verification (disabled by default)
+    # Perplexity settings (overridable at runtime via /api/config)
+    "perplexity_api_key": os.getenv("PERPLEXITY_API_KEY", ""),
+    "perplexity_enabled_models": _parse_enabled_models(os.getenv("PERPLEXITY_ENABLED_MODELS")),
 }
 
 # Initialize proxy settings from environment variables if present
@@ -66,6 +92,29 @@ def get_config(key: str, default: Any = None) -> Any:
     return _runtime_config.get(key, default)
 
 
+def _mask_api_key(value: str) -> str:
+    """Mask an API key for safe display, preserving a recognizable prefix/suffix.
+
+    Args:
+        value: The raw API key (may be empty)
+
+    Returns:
+        Masked representation that never reveals the full secret
+    """
+    if not value:
+        return ""
+    if len(value) <= 8:
+        return "***"
+    return f"{value[:4]}...{value[-4:]}"
+
+
+def _public_config() -> dict[str, Any]:
+    """Return a copy of the runtime config with secrets masked for display."""
+    public = dict(_runtime_config)
+    public["perplexity_api_key"] = _mask_api_key(_runtime_config.get("perplexity_api_key", ""))
+    return public
+
+
 def get_stats() -> dict[str, Any]:
     """Get server statistics and metrics.
 
@@ -94,7 +143,7 @@ def get_current_config() -> dict[str, Any]:
         Dictionary with current config, defaults, and note
     """
     return {
-        "config": _runtime_config,
+        "config": _public_config(),
         "defaults": {
             "concurrency": DEFAULT_CONCURRENCY,
             "default_timeout": 30,
@@ -107,7 +156,10 @@ def get_current_config() -> dict[str, Any]:
             "https_proxy": "",
             "no_proxy": "",
             "verify_ssl": False,
+            "perplexity_api_key": "",
+            "perplexity_enabled_models": list(DEFAULT_ENABLED_PERPLEXITY_MODELS),
         },
+        "available_perplexity_models": list(PERPLEXITY_MODELS),
         "note": "Changes are not persisted and will reset on server restart",
     }
 
@@ -136,6 +188,8 @@ def update_config(config_updates: dict[str, Any]) -> dict[str, Any]:
         "https_proxy",
         "no_proxy",
         "verify_ssl",
+        "perplexity_api_key",
+        "perplexity_enabled_models",
     }
 
     updated = []
@@ -161,12 +215,27 @@ def update_config(config_updates: dict[str, Any]) -> dict[str, Any]:
             elif key in ("http_proxy", "https_proxy", "no_proxy") and isinstance(value, str):
                 _runtime_config[key] = value
                 updated.append(key)
+            elif key == "perplexity_api_key" and isinstance(value, str):
+                _runtime_config[key] = value.strip()
+                updated.append(key)
+            elif key == "perplexity_enabled_models" and isinstance(value, list):
+                # Only accept known model names; reject unknown values to surface typos
+                cleaned = [m for m in value if isinstance(m, str) and m in PERPLEXITY_MODELS]
+                if len(cleaned) == len(value):
+                    _runtime_config[key] = cleaned
+                    updated.append(key)
+                else:
+                    invalid = [m for m in value if m not in PERPLEXITY_MODELS]
+                    raise ValueError(
+                        f"Unknown Perplexity model(s): {invalid}. "
+                        f"Valid models: {list(PERPLEXITY_MODELS)}"
+                    )
 
     return {
         "status": "success",
         "message": f"Updated {len(updated)} config value(s)",
         "updated": updated,
-        "current_config": _runtime_config,
+        "current_config": _public_config(),
     }
 
 
