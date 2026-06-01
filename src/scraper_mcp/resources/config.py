@@ -9,6 +9,10 @@ from scraper_mcp.admin.service import (
     DEFAULT_CONCURRENCY,
     get_current_config,
 )
+from scraper_mcp.models.perplexity import (
+    DEFAULT_ENABLED_PERPLEXITY_MODELS,
+    PERPLEXITY_MODELS,
+)
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -27,6 +31,8 @@ DEFAULT_CONFIG = {
     "https_proxy": "",
     "no_proxy": "",
     "verify_ssl": False,
+    "perplexity_api_key": "",
+    "perplexity_enabled_models": list(DEFAULT_ENABLED_PERPLEXITY_MODELS),
 }
 
 
@@ -85,3 +91,28 @@ def register_config_resources(mcp: FastMCP) -> None:
             },
         }
         return json.dumps(cache_config, indent=2)
+
+    @mcp.resource("config://perplexity")
+    def config_perplexity_resource() -> str:
+        """Perplexity-specific configuration settings.
+
+        Reports which models are enabled (opt-in), the full list of available
+        models, and whether an API key is configured. The API key itself is
+        masked and never exposed.
+        """
+        config_data = get_current_config()
+        config = config_data.get("config", {})
+
+        perplexity_config = {
+            "api_key": config.get("perplexity_api_key", ""),  # already masked
+            "api_key_configured": bool(config.get("perplexity_api_key")),
+            "enabled_models": config.get(
+                "perplexity_enabled_models", list(DEFAULT_ENABLED_PERPLEXITY_MODELS)
+            ),
+            "available_models": list(PERPLEXITY_MODELS),
+            "description": {
+                "enabled_models": "Models that may be used. Others are rejected (opt-in).",
+                "default": f"Only {list(DEFAULT_ENABLED_PERPLEXITY_MODELS)} enabled by default.",
+            },
+        }
+        return json.dumps(perplexity_config, indent=2)

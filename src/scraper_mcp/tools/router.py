@@ -272,7 +272,10 @@ async def perplexity(
     Args:
         messages: Array of conversation messages, each with 'role' (system/user/assistant)
                   and 'content' keys. Example: [{"role": "user", "content": "What is AI?"}]
-        model: Model to use - "sonar" for general queries, "sonar-pro" for complex analysis
+        model: Model to use. Only "sonar" is enabled by default; "sonar-pro",
+               "sonar-reasoning", "sonar-reasoning-pro", and "sonar-deep-research"
+               must be enabled (opt-in) via the 'perplexity_enabled_models' setting.
+               Requesting a disabled model returns an error without making an API call.
         temperature: Response creativity (0-2, default: 0.3). Lower = more focused.
         max_tokens: Maximum response length in tokens (default: 4000)
 
@@ -297,6 +300,10 @@ async def perplexity_reason(
 
     Accepts a query string and returns a comprehensive reasoned response.
     Uses the sonar-reasoning-pro model optimized for analytical and multi-step reasoning.
+
+    Note: sonar-reasoning-pro is disabled by default and must be enabled (opt-in)
+    via the 'perplexity_enabled_models' setting. Until enabled, this tool returns
+    an error without making an API call.
 
     Args:
         query: The query or problem to reason about. Can be a complex question

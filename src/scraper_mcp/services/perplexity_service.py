@@ -7,8 +7,12 @@ import os
 import time
 from typing import Any
 
+from scraper_mcp.admin.service import get_config
 from scraper_mcp.metrics import record_request
-from scraper_mcp.models.perplexity import PerplexityResponse
+from scraper_mcp.models.perplexity import (
+    DEFAULT_ENABLED_PERPLEXITY_MODELS,
+    PerplexityResponse,
+)
 
 # Perplexity SDK is optional - only import if available
 try:
@@ -67,33 +71,66 @@ class PerplexityService:
     This service provides methods for chat completions and reasoning tasks
     using Perplexity's web-grounded AI models.
 
-    Configuration is via environment variables:
-    - PERPLEXITY_API_KEY: Required API key (tools disabled if missing)
-    - PERPLEXITY_MODEL: Default model (default: sonar)
+    Settings are sourced from runtime config (overridable at runtime via the
+    /api/config endpoint), which is itself seeded from environment variables:
+    - PERPLEXITY_API_KEY: API key (tools disabled if missing). Runtime-overridable.
+    - PERPLEXITY_ENABLED_MODELS: Comma-separated allowlist (default: sonar).
+      Runtime-overridable. Models not on the list are rejected (opt-in).
+    - PERPLEXITY_MODEL: Default model for the chat tool (default: sonar)
+    - PERPLEXITY_REASONING_MODEL: Model for the reason tool (default: sonar-reasoning-pro)
     - PERPLEXITY_TEMPERATURE: Default temperature (default: 0.3)
     - PERPLEXITY_MAX_TOKENS: Default max tokens (default: 4000)
     """
 
     def __init__(self) -> None:
         """Initialize the Perplexity service with configuration from environment."""
-        self.api_key = os.getenv("PERPLEXITY_API_KEY", "")
         self.default_model = os.getenv("PERPLEXITY_MODEL", "sonar")
         self.default_temperature = float(os.getenv("PERPLEXITY_TEMPERATURE", "0.3"))
         self.default_max_tokens = int(os.getenv("PERPLEXITY_MAX_TOKENS", "4000"))
-        self.reasoning_model = "sonar-reasoning-pro"
+        self.reasoning_model = os.getenv("PERPLEXITY_REASONING_MODEL", "sonar-reasoning-pro")
 
-        # Initialize client if API key is available
+        # Client is built lazily and rebuilt when the API key changes at runtime.
         self._client: Any = None
-        if self.api_key and PERPLEXITY_AVAILABLE:
-            self._client = Perplexity(api_key=self.api_key)
+        self._client_key: str | None = None
+
+    @property
+    def api_key(self) -> str:
+        """Current API key, preferring the runtime override then the environment."""
+        return str(
+            get_config("perplexity_api_key", "") or os.getenv("PERPLEXITY_API_KEY", "") or ""
+        )
+
+    @property
+    def enabled_models(self) -> list[str]:
+        """Models the user has opted into. Defaults to the cheap `sonar` model only."""
+        models = get_config("perplexity_enabled_models", None)
+        if not models:
+            return list(DEFAULT_ENABLED_PERPLEXITY_MODELS)
+        return list(models)
+
+    def _get_client(self) -> Any:
+        """Return a Perplexity client, (re)building it when the API key changes.
+
+        Returns None when no API key is configured or the SDK is unavailable.
+        """
+        key = self.api_key
+        if not key or not PERPLEXITY_AVAILABLE:
+            self._client = None
+            self._client_key = None
+            return None
+        if self._client is None or self._client_key != key:
+            self._client = Perplexity(api_key=key)
+            self._client_key = key
+        return self._client
 
     @classmethod
     def is_available(cls) -> bool:
         """Check if Perplexity service is available.
 
-        Returns True if:
-        - PERPLEXITY_API_KEY environment variable is set
-        - perplexity SDK is installed
+        Used as the startup gate for registering the Perplexity tools, so it
+        checks the environment directly. Returns True if the perplexity SDK is
+        installed and PERPLEXITY_API_KEY is set. The API key can still be
+        overridden at runtime via /api/config once the tools are registered.
         """
         return bool(os.getenv("PERPLEXITY_API_KEY")) and PERPLEXITY_AVAILABLE
 
@@ -115,7 +152,8 @@ class PerplexityService:
         Returns:
             PerplexityResponse with content, citations, and usage stats
         """
-        if not self._client:
+        client = self._get_client()
+        if not client:
             prompt = _extract_prompt(messages)
             record_request(
                 url=f'perplexity://{model or self.default_model}  "{prompt}"',
@@ -139,6 +177,26 @@ class PerplexityService:
         prompt = _extract_prompt(messages)
         metrics_url = f'perplexity://{model}  "{prompt}"'
 
+        # Enforce the enabled-models allowlist (opt-in). Models not enabled are
+        # rejected before any (billable) API call is made.
+        enabled = self.enabled_models
+        if model not in enabled:
+            record_request(
+                url=metrics_url,
+                success=False,
+                status_code=403,
+                elapsed_ms=0,
+                attempts=1,
+                error=f"Model '{model}' is not enabled",
+                request_type="perplexity",
+            )
+            return self._error_response(
+                f"Model '{model}' is not enabled. Enabled models: {enabled}. "
+                f"Enable it via the 'perplexity_enabled_models' setting (opt-in) "
+                f"to control cost.",
+                model,
+            )
+
         start_time = time.time()
 
         try:
@@ -146,7 +204,7 @@ class PerplexityService:
             loop = asyncio.get_event_loop()
             completion = await loop.run_in_executor(
                 None,
-                lambda: self._client.chat.completions.create(
+                lambda: client.chat.completions.create(
                     messages=messages,
                     model=model,
                     temperature=temperature,

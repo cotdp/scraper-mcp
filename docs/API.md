@@ -89,9 +89,15 @@ Search the web using Perplexity AI. Requires `PERPLEXITY_API_KEY` environment va
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `messages` | array | Yes | - | Conversation messages with `role` and `content` |
-| `model` | string | No | sonar | Model: "sonar" or "sonar-pro" |
+| `model` | string | No | sonar | Model name. Only enabled (opt-in) models are accepted — see note below |
 | `temperature` | number | No | 0.3 | Creativity 0-2 (lower = focused) |
 | `max_tokens` | integer | No | 4000 | Maximum response length |
+
+> **Model allowlist:** Only `sonar` is enabled by default. `sonar-pro`,
+> `sonar-reasoning`, `sonar-reasoning-pro`, and `sonar-deep-research` must be
+> enabled (opt-in) via `PERPLEXITY_ENABLED_MODELS` or the `perplexity_enabled_models`
+> runtime config. A disabled model returns an error without making an API call.
+> See [CONFIGURATION.md](CONFIGURATION.md#model-allowlist-opt-in).
 
 **Returns:**
 - `content`: AI-generated response with citation markers
@@ -103,7 +109,12 @@ Search the web using Perplexity AI. Requires `PERPLEXITY_API_KEY` environment va
 
 ### 6. `perplexity_reason`
 
-Complex reasoning tasks using Perplexity's reasoning model. Requires `PERPLEXITY_API_KEY`.
+Complex reasoning tasks using Perplexity's reasoning model (`sonar-reasoning-pro`).
+Requires `PERPLEXITY_API_KEY`.
+
+> **Disabled by default:** `sonar-reasoning-pro` is opt-in, so this tool returns a
+> "model not enabled" error until you enable it via `PERPLEXITY_ENABLED_MODELS` or
+> the `perplexity_enabled_models` runtime config.
 
 **Parameters:**
 | Parameter | Type | Required | Default | Description |
@@ -263,10 +274,11 @@ MCP resources provide read-only data access via URI-based addressing. Access res
 
 | URI | Description |
 |-----|-------------|
-| `config://current` | Current runtime configuration |
+| `config://current` | Current runtime configuration (API key masked) |
 | `config://defaults` | Default configuration values |
 | `config://scraping` | Scraping settings (timeout, retries, concurrency) |
 | `config://cache` | Cache settings (TTLs, directory) |
+| `config://perplexity` | Perplexity settings (enabled/available models, key status) |
 
 ### Server Resources
 

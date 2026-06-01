@@ -11,6 +11,26 @@ import pytest
 from scraper_mcp.models.perplexity import PerplexityResponse
 
 
+def _fake_get_config(
+    api_key: str = "test-key",
+    enabled: tuple[str, ...] = ("sonar",),
+) -> Any:
+    """Build a stand-in for admin get_config that controls Perplexity settings.
+
+    Patch onto ``scraper_mcp.services.perplexity_service.get_config`` so the
+    service reads deterministic runtime config in tests.
+    """
+
+    def _get(key: str, default: Any = None) -> Any:
+        if key == "perplexity_api_key":
+            return api_key
+        if key == "perplexity_enabled_models":
+            return list(enabled)
+        return default
+
+    return _get
+
+
 class TestPerplexityService:
     """Tests for PerplexityService."""
 
@@ -197,17 +217,157 @@ class TestPerplexityServiceReason:
                     "scraper_mcp.services.perplexity_service.Perplexity",
                     return_value=mock_client,
                 ):
-                    from scraper_mcp.services.perplexity_service import PerplexityService
+                    # Reasoning model is opt-in; enable it for this test
+                    with patch(
+                        "scraper_mcp.services.perplexity_service.get_config",
+                        side_effect=_fake_get_config(enabled=("sonar", "sonar-reasoning-pro")),
+                    ):
+                        from scraper_mcp.services.perplexity_service import PerplexityService
 
-                    service = PerplexityService()
-                    response = await service.reason(query="Compare solar vs wind energy")
+                        service = PerplexityService()
+                        response = await service.reason(query="Compare solar vs wind energy")
 
-                    # Verify the reasoning model was used
-                    call_args = mock_client.chat.completions.create.call_args
-                    assert call_args.kwargs["model"] == "sonar-reasoning-pro"
+                        # Verify the reasoning model was used
+                        call_args = mock_client.chat.completions.create.call_args
+                        assert call_args.kwargs["model"] == "sonar-reasoning-pro"
 
-                    assert response.content == "Reasoned response about the topic."
-                    assert response.model == "sonar-reasoning-pro"
+                        assert response.content == "Reasoned response about the topic."
+                        assert response.model == "sonar-reasoning-pro"
+
+    @pytest.mark.asyncio
+    async def test_reason_blocked_by_default(self) -> None:
+        """reason() returns a gating error when the reasoning model is not enabled."""
+        mock_client = Mock()
+        mock_client.chat.completions.create = Mock()
+
+        with patch.dict(os.environ, {"PERPLEXITY_API_KEY": "test-key"}):
+            with patch("scraper_mcp.services.perplexity_service.PERPLEXITY_AVAILABLE", True):
+                with patch(
+                    "scraper_mcp.services.perplexity_service.Perplexity",
+                    return_value=mock_client,
+                ):
+                    with patch(
+                        "scraper_mcp.services.perplexity_service.get_config",
+                        side_effect=_fake_get_config(enabled=("sonar",)),
+                    ):
+                        from scraper_mcp.services.perplexity_service import PerplexityService
+
+                        service = PerplexityService()
+                        response = await service.reason(query="Anything")
+
+                        # No API call should have been made
+                        mock_client.chat.completions.create.assert_not_called()
+                        assert response.content == ""
+                        assert "not enabled" in response.metadata["error"]
+                        assert response.model == "sonar-reasoning-pro"
+
+
+class TestPerplexityModelGating:
+    """Tests for the enabled-models allowlist (opt-in) enforcement."""
+
+    @pytest.mark.asyncio
+    async def test_disabled_model_rejected_without_api_call(self) -> None:
+        """Requesting a disabled model returns an error and makes no API call."""
+        mock_client = Mock()
+        mock_client.chat.completions.create = Mock()
+
+        with patch.dict(os.environ, {"PERPLEXITY_API_KEY": "test-key"}):
+            with patch("scraper_mcp.services.perplexity_service.PERPLEXITY_AVAILABLE", True):
+                with patch(
+                    "scraper_mcp.services.perplexity_service.Perplexity",
+                    return_value=mock_client,
+                ):
+                    with patch(
+                        "scraper_mcp.services.perplexity_service.get_config",
+                        side_effect=_fake_get_config(enabled=("sonar",)),
+                    ):
+                        from scraper_mcp.services.perplexity_service import PerplexityService
+
+                        service = PerplexityService()
+                        response = await service.chat(
+                            messages=[{"role": "user", "content": "hi"}],
+                            model="sonar-pro",
+                        )
+
+                        mock_client.chat.completions.create.assert_not_called()
+                        assert response.content == ""
+                        assert "sonar-pro" in response.metadata["error"]
+                        assert "not enabled" in response.metadata["error"]
+
+    @pytest.mark.asyncio
+    async def test_opted_in_model_allowed(self) -> None:
+        """A model that has been opted into passes the gate and calls the API."""
+        mock_choice = Mock()
+        mock_choice.message = Mock()
+        mock_choice.message.content = "pro response"
+        mock_completion = Mock()
+        mock_completion.choices = [mock_choice]
+        mock_completion.citations = []
+        mock_completion.usage = Mock(prompt_tokens=1, completion_tokens=2, total_tokens=3)
+        mock_completion.id = "req_pro"
+
+        mock_client = Mock()
+        mock_client.chat.completions.create = Mock(return_value=mock_completion)
+
+        with patch.dict(os.environ, {"PERPLEXITY_API_KEY": "test-key"}):
+            with patch("scraper_mcp.services.perplexity_service.PERPLEXITY_AVAILABLE", True):
+                with patch(
+                    "scraper_mcp.services.perplexity_service.Perplexity",
+                    return_value=mock_client,
+                ):
+                    with patch(
+                        "scraper_mcp.services.perplexity_service.get_config",
+                        side_effect=_fake_get_config(enabled=("sonar", "sonar-pro")),
+                    ):
+                        from scraper_mcp.services.perplexity_service import PerplexityService
+
+                        service = PerplexityService()
+                        response = await service.chat(
+                            messages=[{"role": "user", "content": "hi"}],
+                            model="sonar-pro",
+                        )
+
+                        mock_client.chat.completions.create.assert_called_once()
+                        assert response.content == "pro response"
+                        assert response.model == "sonar-pro"
+
+    @pytest.mark.asyncio
+    async def test_runtime_api_key_override_builds_client(self) -> None:
+        """The client is built from the runtime-config API key (override path)."""
+        mock_choice = Mock()
+        mock_choice.message = Mock()
+        mock_choice.message.content = "ok"
+        mock_completion = Mock()
+        mock_completion.choices = [mock_choice]
+        mock_completion.citations = []
+        mock_completion.usage = Mock(prompt_tokens=1, completion_tokens=1, total_tokens=2)
+        mock_completion.id = "req_override"
+
+        mock_client = Mock()
+        mock_client.chat.completions.create = Mock(return_value=mock_completion)
+
+        # No env key at all; the key comes solely from runtime config
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ.pop("PERPLEXITY_API_KEY", None)
+            with patch("scraper_mcp.services.perplexity_service.PERPLEXITY_AVAILABLE", True):
+                with patch(
+                    "scraper_mcp.services.perplexity_service.Perplexity",
+                    return_value=mock_client,
+                ) as mock_ctor:
+                    with patch(
+                        "scraper_mcp.services.perplexity_service.get_config",
+                        side_effect=_fake_get_config(api_key="runtime-key", enabled=("sonar",)),
+                    ):
+                        from scraper_mcp.services.perplexity_service import PerplexityService
+
+                        service = PerplexityService()
+                        response = await service.chat(
+                            messages=[{"role": "user", "content": "hi"}],
+                            model="sonar",
+                        )
+
+                        mock_ctor.assert_called_once_with(api_key="runtime-key")
+                        assert response.content == "ok"
 
 
 class TestPerplexityTools:
