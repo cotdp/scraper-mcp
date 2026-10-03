@@ -18,7 +18,10 @@ Cutoff: 2026-10-05 12:18:22 Asia/Singapore.
 - [x] Read repository/lane instructions, verify base and open PRs, and trace boundaries.
 - [x] Reproduce output/cache/error/log leaks with focused synthetic regression tests.
 - [x] Apply the smallest boundary fix and verify the regressions and existing checks.
-- [ ] Commit, push, create/link one PR, and record validation limitations.
+- [x] Commit, push, create/link one PR, and record validation limitations.
+
+PR: https://github.com/cotdp/scraper-mcp/pull/5 (linked to this T3 thread).
+Implementation commit: `d3ec7ca`.
 
 ## Evidence
 
