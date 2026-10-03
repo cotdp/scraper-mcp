@@ -1,0 +1,128 @@
+# Scraper MCP Environment Configuration
+# Copy this file to .env and configure as needed
+
+# ============================================================================
+# Proxy Configuration (Optional)
+# ============================================================================
+# Configure HTTP/HTTPS proxy for all outbound requests
+# Uncomment and set these variables if you need to route traffic through a proxy
+
+# HTTP proxy for non-SSL requests
+# HTTP_PROXY=http://proxy.example.com:8080
+# http_proxy=http://proxy.example.com:8080
+
+# HTTPS proxy for SSL requests
+# HTTPS_PROXY=http://proxy.example.com:8080
+# https_proxy=http://proxy.example.com:8080
+
+# Proxy with authentication (if required)
+# HTTP_PROXY=http://username:password@proxy.example.com:8080
+# HTTPS_PROXY=http://username:password@proxy.example.com:8080
+
+# Bypass proxy for specific hosts (comma-separated)
+# NO_PROXY=localhost,127.0.0.1,.local
+# no_proxy=localhost,127.0.0.1,.local
+
+# ============================================================================
+# ScrapeOps Proxy Configuration (Optional)
+# ============================================================================
+# ScrapeOps provides advanced proxy services with JavaScript rendering,
+# residential proxies, and anti-bot bypass. Automatically enabled when API key is set.
+# Get your API key at: https://scrapeops.io/
+
+# ScrapeOps API key (required to enable ScrapeOps)
+# SCRAPEOPS_API_KEY=your_api_key_here
+
+# Enable JavaScript rendering (default: false)
+# Useful for SPAs and sites that load content dynamically
+# SCRAPEOPS_RENDER_JS=true
+
+# Use residential proxies instead of datacenter (default: false)
+# Residential proxies are less likely to be blocked but slower
+# SCRAPEOPS_RESIDENTIAL=true
+
+# Target country for geo-located requests (optional)
+# Examples: us, gb, de, fr, jp, au
+# SCRAPEOPS_COUNTRY=us
+
+# Keep original request headers (default: false)
+# If false, ScrapeOps will optimize headers for better success rate
+# SCRAPEOPS_KEEP_HEADERS=true
+
+# Device type for user agent rotation (default: desktop)
+# Options: desktop, mobile, tablet
+# SCRAPEOPS_DEVICE=mobile
+
+# ============================================================================
+# Perplexity AI / OpenRouter (Optional)
+# ============================================================================
+# The perplexity / perplexity_reason tools are enabled when either key is set.
+# Both backends serve the same Sonar models; OpenRouter addresses them as
+# perplexity/<model> automatically.
+
+# Direct Perplexity API key (https://www.perplexity.ai/)
+# PERPLEXITY_API_KEY=pplx-...
+
+# OpenRouter API key (https://openrouter.ai/)
+# OPENROUTER_API_KEY=sk-or-...
+
+# Backend selection: auto (default; direct Perplexity preferred, OpenRouter
+# fallback), perplexity, or openrouter
+# PERPLEXITY_PROVIDER=openrouter
+
+# Comma-separated model allowlist (opt-in; default: sonar)
+# PERPLEXITY_ENABLED_MODELS=sonar,sonar-pro,sonar-reasoning-pro
+
+# ============================================================================
+# Server Configuration (Optional)
+# ============================================================================
+# These can be overridden if needed, but defaults work for most use cases
+
+# Transport type: streamable-http or sse
+# TRANSPORT=streamable-http
+
+# Host to bind to (0.0.0.0 for all interfaces)
+# HOST=0.0.0.0
+
+# Port to listen on
+# PORT=8000
+
+# Cache directory path (inside container)
+# CACHE_DIR=/app/cache
+
+# Enable cache management tools (default: false)
+# ENABLE_CACHE_TOOLS=true
+
+# Enable MCP resources (default: false)
+# Resources expose cache, config, and server info as MCP resources
+# Disabled by default to reduce context overhead for LLM clients
+# ENABLE_RESOURCES=true
+
+# Enable MCP prompts (default: false)
+# Prompts provide pre-built analysis workflows (SEO, research, etc.)
+# Disabled by default to reduce context overhead for LLM clients
+# ENABLE_PROMPTS=true
+
+# ============================================================================
+# DNS Rebinding Protection (MCP 1.24+)
+# ============================================================================
+# MCP library enables DNS rebinding protection by default for security.
+# This restricts access to localhost only. Add custom domains/hosts here
+# for external access (e.g., OrbStack, remote access, reverse proxy).
+#
+# NOTE: Include both patterns for each domain:
+#   - "domain" (without port) - for requests without explicit port
+#   - "domain:*" (with wildcard port) - for requests with explicit port
+
+# Allowed Host headers (JSON array format)
+# Default: ["127.0.0.1:*","localhost:*","[::1]:*"]
+# For OrbStack access, add your .orb.local domain (both with and without port):
+# FASTMCP_ALLOWED_HOSTS=["127.0.0.1:*","localhost:*","[::1]:*","scraper-mcp.scraper-mcp.orb.local","scraper-mcp.scraper-mcp.orb.local:*"]
+
+# Allowed Origin headers for CORS (JSON array format)
+# Default: ["http://127.0.0.1:*","http://localhost:*","http://[::1]:*"]
+# For OrbStack access (HTTPS), add:
+# FASTMCP_ALLOWED_ORIGINS=["http://127.0.0.1:*","http://localhost:*","http://[::1]:*","https://scraper-mcp.scraper-mcp.orb.local","https://scraper-mcp.scraper-mcp.orb.local:*"]
+
+# To completely disable DNS rebinding protection (NOT recommended for production):
+# FASTMCP_TRANSPORT_SECURITY__ENABLE_DNS_REBINDING_PROTECTION=false
