@@ -62,8 +62,6 @@ def clean_metadata(
     # Only include proxy_used if true
     if metadata.get("proxy_used"):
         cleaned["proxy_used"] = True
-        if "proxy_config" in metadata:
-            cleaned["proxy_config"] = metadata["proxy_config"]
 
     # Only include CSS selector info if selector was applied
     if css_selector:
