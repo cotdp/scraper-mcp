@@ -350,6 +350,15 @@
           "sha256": "f7285675cedcf9a2997e277bc725e89542a38ff4923ef300925abbd3f78ebd5f",
           "archive_path": "recovery/2026-10-03/scraper-mcp/working/tests/test_resources.py.snapshot",
           "bytes": 3095
+        },
+        {
+          "path": "tests/test_admin_config.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "fe194aedfc25254967198792b96ca1907553adb1c5a7d9f64f6f939fbf6ce9e7",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/tests/test_admin_config.py.snapshot",
+          "bytes": 5408
         }
       ]
     },
@@ -376,24 +385,11 @@
       ]
     }
   ],
-  "excluded": [
-    {
-      "archive_path": "recovery/2026-10-03/scraper-mcp/working/tests/test_admin_config.py.snapshot",
-      "reason": "secret scanner finding",
-      "rule": "generic-api-key",
-      "line": 67
-    },
-    {
-      "archive_path": "recovery/2026-10-03/scraper-mcp/working/tests/test_admin_config.py.snapshot",
-      "reason": "secret scanner finding",
-      "rule": "generic-api-key",
-      "line": 76
-    },
-    {
-      "archive_path": "recovery/2026-10-03/scraper-mcp/working/tests/test_admin_config.py.snapshot",
-      "reason": "secret scanner finding",
-      "rule": "generic-api-key",
-      "line": 120
-    }
-  ]
+  "excluded": [],
+  "fixture_review": {
+    "paths": [
+      "tests/test_admin_config.py"
+    ],
+    "evidence": "Deckzy comments identify deliberately inert CI values with example/CI payloads; Scraper literals are synthetic masking fixtures with a sequential numeric suffix and no network calls. Gitleaks default rules remain enabled; allowlist is limited to exact validated lines in exact snapshot paths."
+  }
 }
