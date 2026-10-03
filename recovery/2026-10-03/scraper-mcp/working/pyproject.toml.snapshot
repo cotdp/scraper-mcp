@@ -1,0 +1,127 @@
+[project]
+name = "scraper-mcp"
+version = "0.4.0"
+description = "MCP server for web scraping functionality"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "requests>=2.31.0",
+    "diskcache>=5.6.0",
+    "beautifulsoup4>=4.12.0",
+    "markdownify>=0.12.0",
+    "lxml>=5.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+perplexity = [
+    "perplexityai>=0.1.0",
+]
+playwright = [
+    "playwright>=1.40.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+    "types-requests>=2.31.0",
+    "perplexityai>=0.1.0",
+    "playwright>=1.40.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    ".ruff_cache",
+    ".pytest_cache",
+    ".mypy_cache",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # Pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "W",      # pycodestyle warnings
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "ASYNC",  # flake8-async
+    "S",      # flake8-bandit (security)
+    "C4",     # flake8-comprehensions
+    "DTZ",    # flake8-datetimez
+    "T10",    # flake8-debugger
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "S101",    # Use of assert (allowed in tests)
+    "B008",    # Function calls in argument defaults (needed for FastAPI Depends)
+    "S104",    # Possible binding to all interfaces (intentional for server)
+    "S110",    # try-except-pass (acceptable for cleanup code)
+    "SIM105",  # contextlib.suppress (explicit try-except is clearer)
+    "SIM108",  # Ternary operator (if-else can be clearer)
+    "SIM114",  # Combine if branches (reduces readability in some cases)
+    "RUF022",  # __all__ sorting (we use comments for organization)
+    "ASYNC109",  # timeout parameter name (it's a config value, not asyncio.timeout)
+]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",   # Allow assert in tests
+    "S105",   # Allow hardcoded passwords in tests
+    "S106",   # Allow hardcoded passwords in tests
+    "E501",   # Allow longer lines in tests
+    "E741",   # Allow ambiguous variable names (e.g., 'l' in list comprehensions)
+    "F841",   # Allow unused variables (common in test setup)
+    "F401",   # Allow unused imports (common in test fixtures)
+    "SIM117", # Allow nested with statements (clearer for test setup/teardown)
+]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+
+[tool.ruff.lint.isort]
+known-first-party = ["scraper_mcp"]
+force-single-line = false
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = [
+    "--verbose",
+    "--strict-markers",
+    "--cov=scraper_mcp",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+markers = [
+    "asyncio: mark test as async",
+]

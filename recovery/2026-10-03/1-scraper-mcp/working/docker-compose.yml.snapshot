@@ -1,0 +1,54 @@
+services:
+  scraper-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Pass proxy settings at build time (for package installation)
+      args:
+        - HTTP_PROXY=${HTTP_PROXY:-}
+        - HTTPS_PROXY=${HTTPS_PROXY:-}
+        - NO_PROXY=${NO_PROXY:-}
+        - http_proxy=${http_proxy:-}
+        - https_proxy=${https_proxy:-}
+        - no_proxy=${no_proxy:-}
+    container_name: scraper-mcp
+    ports:
+      # Tailnet-only exposure: loopback (for local Claude Code) + Tailscale IP
+      # (reachable tailnet-wide as hwi:8000). Deliberately NOT on the raw LAN —
+      # the MCP has no auth and holds a Perplexity key. See ~/docs/SCRAPER-MCP.md.
+      - "127.0.0.1:8000:8000"
+      - "100.82.92.118:8000:8000"
+    env_file:
+      - .env
+    # Optional: Enable MCP resources/prompts (disabled by default to reduce context overhead)
+    # environment:
+    #   ENABLE_RESOURCES: "true"
+    #   ENABLE_PROMPTS: "true"
+    volumes:
+      # Persistent cache volume (~1GB target)
+      - cache_data:/app/cache
+    restart: unless-stopped
+    # Memory limit: 1.5GB (1GB for cache + 0.5GB overhead)
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; r = requests.get('http://localhost:8000/healthz', timeout=5); exit(0 if r.status_code == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - mcp-network
+
+volumes:
+  # Named volume for persistent cache storage
+  cache_data:
+    driver: local
+
+networks:
+  mcp-network:
+    driver: bridge

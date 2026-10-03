@@ -1,0 +1,399 @@
+{
+  "repository": "cotdp/scraper-mcp",
+  "remote_default": "9d3e9baae885bb9c8516f9beb161eb31511b78d5",
+  "sources": [
+    {
+      "label": "scraper-mcp",
+      "path": "/home/mcutler/workspaces/carrotly/scraper-mcp",
+      "head": "9d3e9baae885bb9c8516f9beb161eb31511b78d5",
+      "entries": [
+        {
+          "status": ".M",
+          "path": ".env.example"
+        },
+        {
+          "status": ".M",
+          "path": ".github/workflows/ci.yml"
+        },
+        {
+          "status": ".M",
+          "path": "Dockerfile"
+        },
+        {
+          "status": ".M",
+          "path": "README.md"
+        },
+        {
+          "status": ".M",
+          "path": "docker-compose.prod.yml"
+        },
+        {
+          "status": ".M",
+          "path": "docs/CONFIGURATION.md"
+        },
+        {
+          "status": ".M",
+          "path": "pyproject.toml"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/admin/service.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/cache_manager.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/models/perplexity.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/providers/playwright_provider.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/providers/requests_provider.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/resources/cache.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/resources/config.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/resources/router.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/resources/server_info.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/server.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/services/perplexity_service.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/tools/router.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/tools/service.py"
+        },
+        {
+          "status": ".M",
+          "path": "src/scraper_mcp/utils.py"
+        },
+        {
+          "status": ".M",
+          "path": "tests/test_admin_config.py"
+        },
+        {
+          "status": ".M",
+          "path": "tests/test_perplexity.py"
+        },
+        {
+          "status": ".M",
+          "path": "tests/test_providers.py"
+        },
+        {
+          "status": ".M",
+          "path": "uv.lock"
+        },
+        {
+          "status": "??",
+          "path": "plans/2026-08-30-tidy-current-state.md"
+        },
+        {
+          "status": "??",
+          "path": "tests/test_resources.py"
+        }
+      ],
+      "files": [
+        {
+          "path": ".env.example",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "c2dc0a44d81350ec1d8c550d3c2a7719d223dce546008245b448fdaa113a0ce3",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/.env.example.snapshot",
+          "bytes": 5319
+        },
+        {
+          "path": ".github/workflows/ci.yml",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "060babcb24d329ab368a955a14b0015cb464de6f19f7855679724e5c6d19646d",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/.github/workflows/ci.yml.snapshot",
+          "bytes": 1657
+        },
+        {
+          "path": "Dockerfile",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "1a828efcf600965ffc289981d75e5eca496238aaeafc8827331300d01d261f8f",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/Dockerfile.snapshot",
+          "bytes": 2674
+        },
+        {
+          "path": "README.md",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "b392e227db860faed1ff01cea4ef28ca048a0257d78ee0e570b27916c0dc3bb7",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/README.md.snapshot",
+          "bytes": 10976
+        },
+        {
+          "path": "docker-compose.prod.yml",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "f05ea40d2fc18e58b5ca82004c9ecf259b68f2febff4925bd62bbf4b59364acc",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/docker-compose.prod.yml.snapshot",
+          "bytes": 1056
+        },
+        {
+          "path": "docs/CONFIGURATION.md",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "bf378e15affb8fc1296100f37e7e4ac029f510d64644a538573c9f96d83ca8a1",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/docs/CONFIGURATION.md.snapshot",
+          "bytes": 7572
+        },
+        {
+          "path": "pyproject.toml",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "30eea51054444a09803fd237367603ff3d73740411eb4711aa6702db333182b0",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/pyproject.toml.snapshot",
+          "bytes": 3299
+        },
+        {
+          "path": "src/scraper_mcp/admin/service.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "4397cfb22dbc96ba432654658cc11634af209a494db5970702781b7ae4b3cb38",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/admin/service.py.snapshot",
+          "bytes": 9720
+        },
+        {
+          "path": "src/scraper_mcp/cache_manager.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "03624fd74f47430b385c7ae2e45a9553aba18481dc47fb3142a9bcba99e21e6f",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/cache_manager.py.snapshot",
+          "bytes": 9810
+        },
+        {
+          "path": "src/scraper_mcp/models/perplexity.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "969a080dc0765f47528948bfd1bbcbe4fc7b5d2c545ad995e02d29afceb50e34",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/models/perplexity.py.snapshot",
+          "bytes": 1641
+        },
+        {
+          "path": "src/scraper_mcp/providers/playwright_provider.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "a384fff892ecea4aeaab4da5c49d228920dde0610ff3cf5c7d6389dffee021d5",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/providers/playwright_provider.py.snapshot",
+          "bytes": 11775
+        },
+        {
+          "path": "src/scraper_mcp/providers/requests_provider.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "bc006defb7433c0ea2332174832dea12d2149400504be22506fa261e093aa513",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/providers/requests_provider.py.snapshot",
+          "bytes": 13291
+        },
+        {
+          "path": "src/scraper_mcp/resources/cache.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "0c3f8c504ba84b7492ca865a603806342904b55d55d4110d1c9be2bd772cebdc",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/resources/cache.py.snapshot",
+          "bytes": 5832
+        },
+        {
+          "path": "src/scraper_mcp/resources/config.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "0e46dc06ddfe2b402c7e71f4076eef8ca137e9f988ddad2687bf613c21a77742",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/resources/config.py.snapshot",
+          "bytes": 4837
+        },
+        {
+          "path": "src/scraper_mcp/resources/router.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "43a42eebc3a2df109a50521451214aef74695786fc4703d28afe9fd43254e75b",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/resources/router.py.snapshot",
+          "bytes": 1429
+        },
+        {
+          "path": "src/scraper_mcp/resources/server_info.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "8bb4627852f10b548167ff648f9c7c49615b421155c718e7724ea6f2a5193b7d",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/resources/server_info.py.snapshot",
+          "bytes": 4900
+        },
+        {
+          "path": "src/scraper_mcp/server.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "7c2511d2ce6006d54857bbf811a4968356890b875cfcc1e27a202e7699879e14",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/server.py.snapshot",
+          "bytes": 6916
+        },
+        {
+          "path": "src/scraper_mcp/services/perplexity_service.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "33bf9a1670dd22e4aa9911f716e6f6358cfb1acee02432cc4f1198a6d4b1833e",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/services/perplexity_service.py.snapshot",
+          "bytes": 23144
+        },
+        {
+          "path": "src/scraper_mcp/tools/router.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "532ab885ef92cce8284088f147aa102140f34c8313fafb60d304dda04d373c8f",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/tools/router.py.snapshot",
+          "bytes": 12314
+        },
+        {
+          "path": "src/scraper_mcp/tools/service.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "be85a9e6fae0923c6f9f9f27a936a6e4ad4648522df079d5f541612c43ba8c26",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/tools/service.py.snapshot",
+          "bytes": 20606
+        },
+        {
+          "path": "src/scraper_mcp/utils.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "ca5a0c0cd9fe331a834a59c3a9e6e3ec2c04008d536083b98c3ee4f9809e6b80",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/src/scraper_mcp/utils.py.snapshot",
+          "bytes": 4997
+        },
+        {
+          "path": "tests/test_perplexity.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "f5bb8c1f278c9e4479dd14e2dbe0dbd53ce3fa1fe0da04cbba96c97ee46c2ca3",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/tests/test_perplexity.py.snapshot",
+          "bytes": 34251
+        },
+        {
+          "path": "tests/test_providers.py",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "e6b5ee47bedb1a7bd4dca72bf1e3a8f07aba7a1eb941bdc3d7e929c9b29f301a",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/tests/test_providers.py.snapshot",
+          "bytes": 29594
+        },
+        {
+          "path": "uv.lock",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "cab5f78d62f7c4ca3099aa5a600db7a0368e81e77354e5de49c2c8d98d571c15",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/uv.lock.snapshot",
+          "bytes": 174635
+        },
+        {
+          "path": "plans/2026-08-30-tidy-current-state.md",
+          "version": "working",
+          "status": "??",
+          "mode": "100644",
+          "sha256": "6f682b4e9a02d159abd7f3fd2bacaa1601259588f7ef3e886b642aa77da7cae7",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/plans/2026-08-30-tidy-current-state.md.snapshot",
+          "bytes": 367
+        },
+        {
+          "path": "tests/test_resources.py",
+          "version": "working",
+          "status": "??",
+          "mode": "100644",
+          "sha256": "f7285675cedcf9a2997e277bc725e89542a38ff4923ef300925abbd3f78ebd5f",
+          "archive_path": "recovery/2026-10-03/scraper-mcp/working/tests/test_resources.py.snapshot",
+          "bytes": 3095
+        }
+      ]
+    },
+    {
+      "label": "1-scraper-mcp",
+      "path": "/home/mcutler/workspaces/github/scraper-mcp",
+      "head": "9d3e9baae885bb9c8516f9beb161eb31511b78d5",
+      "entries": [
+        {
+          "status": ".M",
+          "path": "docker-compose.yml"
+        }
+      ],
+      "files": [
+        {
+          "path": "docker-compose.yml",
+          "version": "working",
+          "status": ".M",
+          "mode": "100644",
+          "sha256": "5835651645f6d6171e9debd491931ade9b81d40c96dfa61c6936601395c09f5e",
+          "archive_path": "recovery/2026-10-03/1-scraper-mcp/working/docker-compose.yml.snapshot",
+          "bytes": 1647
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "archive_path": "recovery/2026-10-03/scraper-mcp/working/tests/test_admin_config.py.snapshot",
+      "reason": "secret scanner finding",
+      "rule": "generic-api-key",
+      "line": 67
+    },
+    {
+      "archive_path": "recovery/2026-10-03/scraper-mcp/working/tests/test_admin_config.py.snapshot",
+      "reason": "secret scanner finding",
+      "rule": "generic-api-key",
+      "line": 76
+    },
+    {
+      "archive_path": "recovery/2026-10-03/scraper-mcp/working/tests/test_admin_config.py.snapshot",
+      "reason": "secret scanner finding",
+      "rule": "generic-api-key",
+      "line": 120
+    }
+  ]
+}
