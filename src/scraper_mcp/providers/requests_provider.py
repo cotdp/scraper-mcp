@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 from typing import Any
-from urllib.parse import urlencode, urlparse
+from urllib.parse import quote, quote_plus, unquote, urlencode, urlparse
 
 import requests
 import urllib3
@@ -197,6 +197,25 @@ class RequestsProvider(ScraperProvider):
 
         return proxies if proxies else None
 
+    def _redact_proxy_credentials(self, text: str, proxies: dict[str, str] | None) -> str:
+        """Remove configured transport credentials, including URL-encoded forms."""
+        private_values = {self.scrapeops_api_key} if self.scrapeops_api_key else set()
+        for proxy_url in (proxies or {}).values():
+            private_values.add(proxy_url)
+            parsed = urlparse(proxy_url)
+            for credential in (parsed.username, parsed.password):
+                if credential:
+                    private_values.add(unquote(credential))
+
+        encoded_values = {
+            form
+            for value in private_values
+            for form in (value, quote(value, safe=""), quote_plus(value))
+        }
+        for value in sorted(encoded_values, key=len, reverse=True):
+            text = text.replace(value, "[REDACTED]")
+        return text
+
     async def scrape(self, url: str, **kwargs: Any) -> ScrapeResult:
         """Scrape content from a URL using requests with caching and retry logic.
 
@@ -282,8 +301,12 @@ class RequestsProvider(ScraperProvider):
                 response.raise_for_status()
 
                 # Extract metadata including retry info
+                content_type = response.headers.get("Content-Type")
                 metadata = {
-                    "headers": dict(response.headers),
+                    "headers": {
+                        key: self._redact_proxy_credentials(value, proxies)
+                        for key, value in response.headers.items()
+                    },
                     "elapsed_ms": response.elapsed.total_seconds() * 1000,
                     "attempts": attempt + 1,
                     "retries": attempt,
@@ -293,7 +316,6 @@ class RequestsProvider(ScraperProvider):
                 # Add proxy metadata if used
                 if proxies:
                     metadata["proxy_used"] = True
-                    metadata["proxy_config"] = dict(proxies)
                 else:
                     metadata["proxy_used"] = False
 
@@ -307,10 +329,15 @@ class RequestsProvider(ScraperProvider):
                     metadata["cache_key"] = cache_key
 
                 result = ScrapeResult(
-                    url=response.url,  # Use final URL after redirects
-                    content=response.text,
+                    # ScrapeOps response.url identifies the credential-bearing transport.
+                    url=original_url
+                    if self.scrapeops_enabled
+                    else self._redact_proxy_credentials(response.url, proxies),
+                    content=self._redact_proxy_credentials(response.text, proxies),
                     status_code=response.status_code,
-                    content_type=response.headers.get("Content-Type"),
+                    content_type=self._redact_proxy_credentials(content_type, proxies)
+                    if content_type is not None
+                    else None,
                     metadata=metadata,
                 )
 
@@ -322,17 +349,19 @@ class RequestsProvider(ScraperProvider):
 
                 return result
 
-            except (
-                requests.Timeout,
-                requests.ConnectionError,
-                requests.HTTPError,
-            ) as e:
-                last_exception = e
+            except requests.RequestException as e:
+                if self.scrapeops_enabled or proxies:
+                    # Do not propagate attached request/response objects or transport causes.
+                    last_exception = type(e)(f"Request failed for {original_url}")
+                else:
+                    last_exception = e
                 attempt += 1
 
-                # If we've exhausted all retries, raise the exception
-                if attempt > max_retries:
-                    raise
+                retryable = isinstance(
+                    e, (requests.Timeout, requests.ConnectionError, requests.HTTPError)
+                )
+                if not retryable or attempt > max_retries:
+                    break
 
                 # Calculate exponential backoff delay
                 delay = self.retry_delay * (2 ** (attempt - 1))
@@ -345,7 +374,7 @@ class RequestsProvider(ScraperProvider):
                 # Sleep before retry (run in thread pool to not block event loop)
                 await asyncio.sleep(delay)
 
-        # Should never reach here, but just in case
+        # Raise outside the handler so credential-bearing exceptions are not chained.
         if last_exception:
             raise last_exception
         raise RuntimeError("Unexpected error in retry loop")

@@ -73,10 +73,7 @@ if _http_proxy_env or _https_proxy_env:
     import logging
 
     logger = logging.getLogger(__name__)
-    logger.info(
-        f"Proxy enabled from environment variables: "
-        f"HTTP_PROXY={_http_proxy_env}, HTTPS_PROXY={_https_proxy_env}, NO_PROXY={_no_proxy_env}"
-    )
+    logger.info("Proxy enabled from environment variables")
 
 
 def get_config(key: str, default: Any = None) -> Any:
