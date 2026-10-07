@@ -14,6 +14,8 @@ from scraper_mcp.models.perplexity import PerplexityResponse
 def _fake_get_config(
     api_key: str = "test-key",
     enabled: tuple[str, ...] = ("sonar",),
+    openrouter_api_key: str = "",
+    provider: str = "auto",
 ) -> Any:
     """Build a stand-in for admin get_config that controls Perplexity settings.
 
@@ -26,9 +28,27 @@ def _fake_get_config(
             return api_key
         if key == "perplexity_enabled_models":
             return list(enabled)
+        if key == "openrouter_api_key":
+            return openrouter_api_key
+        if key == "perplexity_provider":
+            return provider
         return default
 
     return _get
+
+
+def _openrouter_response(
+    status_code: int = 200,
+    payload: object | None = None,
+    text: str = "",
+) -> Mock:
+    """Build a mock requests.Response for the OpenRouter backend."""
+    response = Mock()
+    response.status_code = status_code
+    response.text = text
+    if payload is not None:
+        response.json = Mock(return_value=payload)
+    return response
 
 
 class TestPerplexityService:
@@ -55,8 +75,28 @@ class TestPerplexityService:
 
     def test_is_available_without_sdk(self) -> None:
         """Test is_available returns False when SDK is not installed."""
-        with patch.dict(os.environ, {"PERPLEXITY_API_KEY": "test-key"}):
+        with patch.dict(os.environ, {"PERPLEXITY_API_KEY": "test-key"}, clear=True):
             with patch("scraper_mcp.services.perplexity_service.PERPLEXITY_AVAILABLE", False):
+                from scraper_mcp.services.perplexity_service import PerplexityService
+
+                assert PerplexityService.is_available() is False
+
+    def test_is_available_with_openrouter_key_only(self) -> None:
+        """OpenRouter key alone enables the tools, even without the Perplexity SDK."""
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "sk-or-test"}, clear=True):
+            with patch("scraper_mcp.services.perplexity_service.PERPLEXITY_AVAILABLE", False):
+                from scraper_mcp.services.perplexity_service import PerplexityService
+
+                assert PerplexityService.is_available() is True
+
+    def test_is_available_respects_explicit_provider(self) -> None:
+        """An explicit provider requires that provider's key at startup."""
+        env = {
+            "PERPLEXITY_API_KEY": "pplx-test",
+            "PERPLEXITY_PROVIDER": "openrouter",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with patch("scraper_mcp.services.perplexity_service.PERPLEXITY_AVAILABLE", True):
                 from scraper_mcp.services.perplexity_service import PerplexityService
 
                 assert PerplexityService.is_available() is False
@@ -368,6 +408,274 @@ class TestPerplexityModelGating:
 
                         mock_ctor.assert_called_once_with(api_key="runtime-key")
                         assert response.content == "ok"
+
+
+class TestOpenRouterBackend:
+    """Tests for serving the Perplexity tools via OpenRouter."""
+
+    @pytest.mark.asyncio
+    async def test_chat_via_openrouter(self) -> None:
+        """chat() routes through OpenRouter when it is the selected provider."""
+        payload = {
+            "id": "gen-or-123",
+            "choices": [
+                {
+                    "message": {
+                        "content": "OpenRouter response about AI.",
+                        "annotations": [
+                            {
+                                "type": "url_citation",
+                                "url_citation": {"url": "https://example.com/source1"},
+                            },
+                            {
+                                "type": "url_citation",
+                                "url_citation": {"url": "https://example.com/annotated"},
+                            },
+                        ],
+                    }
+                }
+            ],
+            "citations": ["https://example.com/source1"],
+            "usage": {"prompt_tokens": 11, "completion_tokens": 22, "total_tokens": 33},
+        }
+
+        with patch.dict(os.environ, {}, clear=True):
+            with patch(
+                "scraper_mcp.services.perplexity_service.get_config",
+                side_effect=_fake_get_config(
+                    api_key="",
+                    openrouter_api_key="sk-or-test",
+                    provider="openrouter",
+                ),
+            ):
+                with patch(
+                    "scraper_mcp.services.perplexity_service.requests.post",
+                    return_value=_openrouter_response(payload=payload),
+                ) as mock_post:
+                    from scraper_mcp.services.perplexity_service import PerplexityService
+
+                    service = PerplexityService()
+                    response = await service.chat(
+                        messages=[{"role": "user", "content": "What is AI?"}],
+                        model="sonar",
+                    )
+
+                    # Bare model name is mapped to the OpenRouter slug
+                    call_kwargs = mock_post.call_args.kwargs
+                    assert call_kwargs["json"]["model"] == "perplexity/sonar"
+                    assert call_kwargs["headers"]["Authorization"] == "Bearer sk-or-test"
+
+                    assert response.content == "OpenRouter response about AI."
+                    # Response reports the bare model name, not the slug
+                    assert response.model == "sonar"
+                    assert response.citations == [
+                        "https://example.com/source1",
+                        "https://example.com/annotated",
+                    ]
+                    assert response.usage["total_tokens"] == 33
+                    assert response.metadata["provider"] == "openrouter"
+                    assert response.metadata["request_id"] == "gen-or-123"
+
+    @pytest.mark.asyncio
+    async def test_auto_prefers_direct_perplexity(self) -> None:
+        """In auto mode, direct Perplexity wins when both keys are configured."""
+        mock_choice = Mock()
+        mock_choice.message = Mock()
+        mock_choice.message.content = "direct response"
+        mock_completion = Mock()
+        mock_completion.choices = [mock_choice]
+        mock_completion.citations = []
+        mock_completion.usage = Mock(prompt_tokens=1, completion_tokens=2, total_tokens=3)
+        mock_completion.id = "req_direct"
+
+        mock_client = Mock()
+        mock_client.chat.completions.create = Mock(return_value=mock_completion)
+
+        with patch.dict(os.environ, {}, clear=True):
+            with patch("scraper_mcp.services.perplexity_service.PERPLEXITY_AVAILABLE", True):
+                with patch(
+                    "scraper_mcp.services.perplexity_service.Perplexity",
+                    return_value=mock_client,
+                ):
+                    with patch(
+                        "scraper_mcp.services.perplexity_service.get_config",
+                        side_effect=_fake_get_config(
+                            api_key="pplx-test",
+                            openrouter_api_key="sk-or-test",
+                            provider="auto",
+                        ),
+                    ):
+                        with patch(
+                            "scraper_mcp.services.perplexity_service.requests.post"
+                        ) as mock_post:
+                            from scraper_mcp.services.perplexity_service import (
+                                PerplexityService,
+                            )
+
+                            service = PerplexityService()
+                            response = await service.chat(
+                                messages=[{"role": "user", "content": "hi"}],
+                                model="sonar",
+                            )
+
+                            mock_post.assert_not_called()
+                            mock_client.chat.completions.create.assert_called_once()
+                            assert response.content == "direct response"
+                            assert response.metadata["provider"] == "perplexity"
+
+    @pytest.mark.asyncio
+    async def test_auto_falls_back_to_openrouter(self) -> None:
+        """In auto mode, OpenRouter serves when no Perplexity key is set."""
+        payload = {
+            "id": "gen-or-fallback",
+            "choices": [{"message": {"content": "fallback response"}}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        }
+
+        with patch.dict(os.environ, {}, clear=True):
+            with patch(
+                "scraper_mcp.services.perplexity_service.get_config",
+                side_effect=_fake_get_config(
+                    api_key="",
+                    openrouter_api_key="sk-or-test",
+                    provider="auto",
+                ),
+            ):
+                with patch(
+                    "scraper_mcp.services.perplexity_service.requests.post",
+                    return_value=_openrouter_response(payload=payload),
+                ):
+                    from scraper_mcp.services.perplexity_service import PerplexityService
+
+                    service = PerplexityService()
+                    response = await service.chat(
+                        messages=[{"role": "user", "content": "hi"}],
+                        model="sonar",
+                    )
+
+                    assert response.content == "fallback response"
+                    assert response.metadata["provider"] == "openrouter"
+
+    @pytest.mark.asyncio
+    async def test_openrouter_selected_without_key_unavailable(self) -> None:
+        """provider=openrouter with no OpenRouter key returns a service error."""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch(
+                "scraper_mcp.services.perplexity_service.get_config",
+                side_effect=_fake_get_config(
+                    api_key="pplx-test",
+                    openrouter_api_key="",
+                    provider="openrouter",
+                ),
+            ):
+                from scraper_mcp.services.perplexity_service import PerplexityService
+
+                service = PerplexityService()
+                response = await service.chat(messages=[{"role": "user", "content": "hi"}])
+
+                assert response.content == ""
+                assert "not available" in response.metadata["error"]
+
+    @pytest.mark.asyncio
+    async def test_openrouter_model_gating_still_applies(self) -> None:
+        """The enabled-models allowlist gates OpenRouter requests too."""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch(
+                "scraper_mcp.services.perplexity_service.get_config",
+                side_effect=_fake_get_config(
+                    api_key="",
+                    enabled=("sonar",),
+                    openrouter_api_key="sk-or-test",
+                    provider="openrouter",
+                ),
+            ):
+                with patch("scraper_mcp.services.perplexity_service.requests.post") as mock_post:
+                    from scraper_mcp.services.perplexity_service import PerplexityService
+
+                    service = PerplexityService()
+                    response = await service.chat(
+                        messages=[{"role": "user", "content": "hi"}],
+                        model="sonar-pro",
+                    )
+
+                    mock_post.assert_not_called()
+                    assert "not enabled" in response.metadata["error"]
+
+    @pytest.mark.asyncio
+    async def test_openrouter_http_error(self) -> None:
+        """HTTP errors from OpenRouter surface in the error response."""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch(
+                "scraper_mcp.services.perplexity_service.get_config",
+                side_effect=_fake_get_config(
+                    api_key="",
+                    openrouter_api_key="sk-or-test",
+                    provider="openrouter",
+                ),
+            ):
+                with patch(
+                    "scraper_mcp.services.perplexity_service.requests.post",
+                    return_value=_openrouter_response(status_code=429, text="slow down"),
+                ):
+                    from scraper_mcp.services.perplexity_service import PerplexityService
+
+                    service = PerplexityService()
+                    response = await service.chat(messages=[{"role": "user", "content": "hi"}])
+
+                    assert response.content == ""
+                    assert "Rate limit" in response.metadata["error"]
+                    assert response.metadata.get("rate_limited") is True
+
+    @pytest.mark.asyncio
+    async def test_openrouter_error_payload_on_200(self) -> None:
+        """OpenRouter 200 responses carrying an error object are surfaced."""
+        payload = {"error": {"message": "moderation blocked", "code": 403}}
+
+        with patch.dict(os.environ, {}, clear=True):
+            with patch(
+                "scraper_mcp.services.perplexity_service.get_config",
+                side_effect=_fake_get_config(
+                    api_key="",
+                    openrouter_api_key="sk-or-test",
+                    provider="openrouter",
+                ),
+            ):
+                with patch(
+                    "scraper_mcp.services.perplexity_service.requests.post",
+                    return_value=_openrouter_response(payload=payload),
+                ):
+                    from scraper_mcp.services.perplexity_service import PerplexityService
+
+                    service = PerplexityService()
+                    response = await service.chat(messages=[{"role": "user", "content": "hi"}])
+
+                    assert response.content == ""
+                    assert "moderation blocked" in response.metadata["error"]
+
+    @pytest.mark.asyncio
+    async def test_openrouter_rejects_non_object_payload(self) -> None:
+        """Malformed successful responses are reported as upstream failures."""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch(
+                "scraper_mcp.services.perplexity_service.get_config",
+                side_effect=_fake_get_config(
+                    api_key="",
+                    openrouter_api_key="sk-or-test",
+                    provider="openrouter",
+                ),
+            ):
+                with patch(
+                    "scraper_mcp.services.perplexity_service.requests.post",
+                    return_value=_openrouter_response(payload=[]),
+                ):
+                    from scraper_mcp.services.perplexity_service import PerplexityService
+
+                    service = PerplexityService()
+                    response = await service.chat(messages=[{"role": "user", "content": "hi"}])
+
+                    assert response.content == ""
+                    assert response.metadata["error"] == "Invalid response payload from OpenRouter"
+                    assert response.metadata["provider"] == "openrouter"
 
 
 class TestPerplexityTools:

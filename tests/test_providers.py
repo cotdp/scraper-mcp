@@ -144,11 +144,14 @@ class TestRequestsProvider:
         """Test scraping with HTTP error."""
         mock_response = Mock()
         mock_response.status_code = 404
-        mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
+        error = requests.HTTPError("404 Not Found", response=mock_response)
+        mock_response.raise_for_status.side_effect = error
 
-        with patch.object(provider.session, "get", return_value=mock_response):
+        with patch.object(provider.session, "get", return_value=mock_response) as mock_get:
             with pytest.raises(requests.HTTPError):
                 await provider.scrape("https://example.com/not-found")
+
+        mock_get.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_scrape_connection_error(self, provider: RequestsProvider) -> None:
@@ -280,6 +283,39 @@ class TestRequestsProvider:
                 assert result.status_code == 200
                 assert result.metadata["attempts"] == 3
                 assert result.metadata["retries"] == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_on_transient_http_error(
+        self, provider: RequestsProvider, sample_html: str
+    ) -> None:
+        """Test that transient HTTP failures are retried."""
+        transient_response = Mock()
+        transient_response.status_code = 503
+        transient_response.raise_for_status.side_effect = requests.HTTPError(
+            "503 Service Unavailable", response=transient_response
+        )
+
+        success_response = Mock()
+        success_response.url = "https://example.com"
+        success_response.text = sample_html
+        success_response.status_code = 200
+        success_response.headers = {"Content-Type": "text/html"}
+        success_response.elapsed.total_seconds.return_value = 0.1
+
+        with (
+            patch.object(
+                provider.session,
+                "get",
+                side_effect=[transient_response, success_response],
+            ) as mock_get,
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            result = await provider.scrape("https://example.com", max_retries=1)
+
+        assert result.status_code == 200
+        assert result.metadata["attempts"] == 2
+        assert mock_get.call_count == 2
+        mock_sleep.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_retry_exhausted(self, provider: RequestsProvider) -> None:

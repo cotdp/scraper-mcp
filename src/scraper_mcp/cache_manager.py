@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-import diskcache
+import diskcache  # type: ignore[import-untyped]
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -190,7 +190,7 @@ class CacheManager:
             True if successful, False otherwise
         """
         try:
-            return self.cache.set(key, value, expire=expire, retry=retry)
+            return bool(self.cache.set(key, value, expire=expire, retry=retry))
         except Exception as e:
             logger.error(f"Cache set error: {e}")
             return False
@@ -205,7 +205,7 @@ class CacheManager:
             True if key existed and was deleted, False otherwise
         """
         try:
-            return self.cache.delete(key, retry=True)
+            return bool(self.cache.delete(key, retry=True))
         except Exception as e:
             logger.error(f"Cache delete error: {e}")
             return False
@@ -227,7 +227,7 @@ class CacheManager:
             Number of expired entries removed
         """
         try:
-            count = self.cache.expire()
+            count = int(self.cache.expire())
             logger.info(f"Removed {count} expired entries from cache")
             return count
         except Exception as e:

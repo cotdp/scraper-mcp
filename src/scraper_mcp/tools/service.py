@@ -283,7 +283,6 @@ async def scrape_single_url_markdown_safe(
                 url=url,
                 success=True,
                 data=ScrapeResponse(
-                    url=result.url,
                     content=markdown_content,
                     status_code=result.status_code,
                     content_type=result.content_type,
@@ -431,7 +430,6 @@ async def scrape_single_url_text_safe(
                 url=url,
                 success=True,
                 data=ScrapeResponse(
-                    url=result.url,
                     content=text_content,
                     status_code=result.status_code,
                     content_type=result.content_type,
@@ -565,7 +563,6 @@ async def extract_links_single_safe(
                 url=url,
                 success=True,
                 data=LinksResponse(
-                    url=result.url,
                     links=links,
                     count=len(links),
                 ),

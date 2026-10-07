@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from typing import cast
+from urllib.parse import urljoin
+
 from bs4 import BeautifulSoup
-from markdownify import markdownify
+from markdownify import markdownify  # type: ignore[import-untyped]
 
 
 def html_to_markdown(html: str, strip_tags: list[str] | None = None) -> str:
@@ -26,7 +29,7 @@ def html_to_markdown(html: str, strip_tags: list[str] | None = None) -> str:
                 element.decompose()
 
     # Convert to markdown
-    markdown = markdownify(str(soup), heading_style="ATX")
+    markdown = cast(str, markdownify(str(soup), heading_style="ATX"))
     return markdown.strip()
 
 
@@ -69,20 +72,23 @@ def extract_links(html: str, base_url: str | None = None) -> list[dict[str, str]
     Returns:
         List of dictionaries containing link information
     """
-    from urllib.parse import urljoin
-
     soup = BeautifulSoup(html, "lxml")
-    links = []
+    links: list[dict[str, str]] = []
 
     for link in soup.find_all("a", href=True):
-        href = link["href"]
-        text = link.get_text(strip=True)
+        href = link.get("href")
+        if not isinstance(href, str):
+            continue
 
-        # Resolve relative URLs if base_url provided
-        if base_url:
-            href = urljoin(base_url, href)
-
-        links.append({"url": href, "text": text, "title": link.get("title", "")})
+        title = link.get("title")
+        resolved_url = urljoin(base_url, href) if base_url else href
+        links.append(
+            {
+                "url": resolved_url,
+                "text": link.get_text(strip=True),
+                "title": title if isinstance(title, str) else "",
+            }
+        )
 
     return links
 
@@ -108,7 +114,7 @@ def extract_metadata(html: str) -> dict[str, str]:
         name = meta.get("name") or meta.get("property")
         content = meta.get("content")
 
-        if name and content:
+        if isinstance(name, str) and isinstance(content, str):
             metadata[name] = content
 
     return metadata

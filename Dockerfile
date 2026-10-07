@@ -37,24 +37,17 @@ RUN apt-get update && \
     fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for faster package management
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Pin uv so release builds use a reproducible installer.
+COPY --from=ghcr.io/astral-sh/uv:0.11.28 /uv /usr/local/bin/uv
 
-# Copy dependency files only (for layer caching)
-COPY pyproject.toml README.md ./
+# Copy dependency metadata first so dependency installation remains cacheable.
+COPY pyproject.toml uv.lock README.md ./
 
-# Install dependencies first (cached layer - only invalidated when pyproject.toml changes)
-# We install dependencies without the package itself to maximize cache hits
-# Install with playwright optional dependency
-RUN uv pip install --system \
-    mcp[cli] \
-    requests \
-    beautifulsoup4 \
-    markdownify \
-    lxml \
-    diskcache \
-    perplexityai \
-    playwright
+# Install the exact locked production dependency graph without the project itself.
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PATH="/app/.venv/bin:$PATH"
+RUN uv sync --frozen --no-dev --extra perplexity --extra playwright --no-install-project
 
 # Set Playwright browser path BEFORE install so browsers go to correct location
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
@@ -64,11 +57,10 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN playwright install chromium --with-deps && \
     chmod -R 755 /ms-playwright
 
-# Copy application code last (invalidates fewer layers on source changes)
+# Copy application code last (invalidates fewer layers on source changes), then
+# install the project against the already-synchronized locked environment.
 COPY src/ ./src/
-
-# Install the package itself (fast, deps already cached)
-RUN uv pip install --system --no-deps .
+RUN uv sync --frozen --no-dev --extra perplexity --extra playwright
 
 # Create cache directory with proper permissions
 RUN mkdir -p /app/cache && chmod 777 /app/cache

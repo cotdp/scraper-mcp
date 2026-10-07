@@ -200,6 +200,29 @@ async def test_errors_do_not_expose_transport_credentials(
         assert_no_credentials(output)
 
 
+@pytest.mark.parametrize("scrapeops", [False, True])
+async def test_permanent_http_error_is_not_retried_and_stays_sanitized(
+    proxy_boundary, monkeypatch, scrapeops
+):
+    provider, _cache, _metrics = proxy_boundary
+    provider.scrapeops_enabled = scrapeops
+    transport_url = provider._build_scrapeops_url(TARGET) if scrapeops else TARGET
+    response = response_for(transport_url)
+    response.status_code = 404
+    calls = []
+
+    def get(*args, **kwargs):
+        calls.append(args[0])
+        raise requests.HTTPError(f"404 for {transport_url} via {PROXY_URL}", response=response)
+
+    monkeypatch.setattr(provider.session, "get", get)
+    with pytest.raises(requests.HTTPError) as caught:
+        await provider.scrape(TARGET, max_retries=3)
+    assert len(calls) == 1
+    assert caught.value.response is None
+    assert_no_credentials("".join(traceback.format_exception(caught.value)))
+
+
 @pytest.mark.parametrize("legacy_kind", ["proxy_config", "scrapeops_url"])
 async def test_legacy_unsafe_cache_is_not_returned(proxy_boundary, monkeypatch, legacy_kind):
     provider, cache, _metrics = proxy_boundary

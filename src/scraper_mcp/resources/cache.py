@@ -3,14 +3,25 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from dataclasses import asdict
+from typing import TYPE_CHECKING, Any, cast
 
 from scraper_mcp.cache import get_cache_stats
 from scraper_mcp.cache_manager import get_cache_manager
 from scraper_mcp.metrics import get_metrics
+from scraper_mcp.providers.base import ScrapeResult
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
+
+
+def _cached_result_payload(value: object) -> dict[str, Any] | None:
+    """Normalize supported cached scrape values to a JSON-ready mapping."""
+    if isinstance(value, ScrapeResult):
+        return asdict(value)
+    if isinstance(value, dict):
+        return cast(dict[str, Any], value)
+    return None
 
 
 def register_cache_resources(mcp: FastMCP) -> None:
@@ -70,7 +81,9 @@ def register_cache_resources(mcp: FastMCP) -> None:
         cached_content = None
         if request.cache_key:
             cache_manager = get_cache_manager()
-            cached_content = cache_manager.get(request.cache_key)
+            cached_value = cache_manager.get(request.cache_key)
+            payload = _cached_result_payload(cached_value)
+            cached_content = payload if payload is not None else cached_value
 
         result = {
             "request_id": request.request_id,
@@ -109,9 +122,9 @@ def register_cache_resources(mcp: FastMCP) -> None:
         # Get cached content
         if request.cache_key:
             cache_manager = get_cache_manager()
-            cached = cache_manager.get(request.cache_key)
-            if cached and isinstance(cached, dict):
-                content = cached.get("content", "")
+            payload = _cached_result_payload(cache_manager.get(request.cache_key))
+            if payload:
+                content = payload.get("content", "")
                 return str(content) if content else ""
 
         # For Perplexity requests, return the content
@@ -154,8 +167,8 @@ def register_cache_resources(mcp: FastMCP) -> None:
         # Add cached metadata if available
         if request.cache_key:
             cache_manager = get_cache_manager()
-            cached = cache_manager.get(request.cache_key)
-            if cached and isinstance(cached, dict):
-                metadata["cached_metadata"] = cached.get("metadata", {})
+            payload = _cached_result_payload(cache_manager.get(request.cache_key))
+            if payload:
+                metadata["cached_metadata"] = payload.get("metadata", {})
 
         return json.dumps(metadata, indent=2, default=str)

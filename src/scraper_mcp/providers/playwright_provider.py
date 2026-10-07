@@ -6,9 +6,12 @@ import asyncio
 import logging
 import os
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from scraper_mcp.providers.base import ScrapeResult, ScraperProvider
+
+if TYPE_CHECKING:
+    from playwright.async_api import Browser, BrowserContext, Playwright
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -23,6 +26,9 @@ class BrowserPoolManager:
 
     _instance: BrowserPoolManager | None = None
     _lock: asyncio.Lock | None = None
+    _initialized: bool
+    _browser: Browser | None
+    _playwright: Playwright | None
 
     def __new__(cls) -> BrowserPoolManager:
         if cls._instance is None:
@@ -102,7 +108,7 @@ class BrowserPoolManager:
                 logger.error(f"Failed to start Playwright browser: {e}")
                 raise
 
-    async def acquire_context(self) -> Any:
+    async def acquire_context(self) -> BrowserContext:
         """Acquire a new browser context with semaphore control.
 
         Returns:
@@ -131,7 +137,7 @@ class BrowserPoolManager:
             self._semaphore.release()
             raise
 
-    async def release_context(self, context: Any) -> None:
+    async def release_context(self, context: BrowserContext) -> None:
         """Release a browser context back to the pool.
 
         Args:
