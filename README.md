@@ -5,6 +5,7 @@
 [![GHCR](https://img.shields.io/badge/GHCR-scraper--mcp-blue?logo=github)](https://github.com/cotdp/scraper-mcp/pkgs/container/scraper-mcp)
 
 A context-optimized MCP server for web scraping. Reduces LLM token usage by 70-90% through server-side HTML filtering, markdown conversion, and CSS selector targeting.
+The `latest` Docker image updates on version tags or a manual Docker publish run.
 
 ## Quick Start
 
@@ -218,8 +219,7 @@ Your cache data persists in the named volume across upgrades.
 | Tag | Description |
 |-----|-------------|
 | `latest` | Latest stable release |
-| `main` | Latest build from main branch |
-| `v0.4.0` | Specific version |
+| `0.4.0` | Specific version |
 
 ## Configuration
 

@@ -8,6 +8,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 import diskcache
 
@@ -150,7 +151,17 @@ class CacheManager:
             Cached value or default
         """
         try:
+            from scraper_mcp.providers.base import ScrapeResult
+
             value = self.cache.get(key, default=default, retry=True)
+            # Pre-fix scrape results must not surface through tools, resources, or the dashboard.
+            if isinstance(value, ScrapeResult):
+                parsed_url = urlparse(value.url)
+                if "proxy_config" in value.metadata or (
+                    parsed_url.hostname == "proxy.scrapeops.io"
+                    and "api_key" in parse_qs(parsed_url.query, keep_blank_values=True)
+                ):
+                    return default
             if value is not default:
                 logger.debug(f"Cache HIT for key: {key[:16]}...")
             else:
