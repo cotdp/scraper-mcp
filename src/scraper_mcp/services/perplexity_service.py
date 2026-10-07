@@ -17,6 +17,7 @@ import asyncio
 import os
 import time
 from typing import Any, TypedDict
+from urllib.request import getproxies
 
 import requests
 
@@ -29,6 +30,7 @@ from scraper_mcp.models.perplexity import (
     PERPLEXITY_PROVIDERS,
     PerplexityResponse,
 )
+from scraper_mcp.providers.requests_provider import redact_credentials
 
 # Perplexity SDK is optional - only import if available
 try:
@@ -316,6 +318,8 @@ class PerplexityService:
         Raises:
             _CompletionError: On any HTTP or transport failure.
         """
+        response: requests.Response | None = None
+        transport_error = ""
         try:
             response = requests.post(
                 OPENROUTER_API_URL,
@@ -335,7 +339,11 @@ class PerplexityService:
                 timeout=OPENROUTER_TIMEOUT_SECONDS,
             )
         except requests.RequestException as e:
-            raise _CompletionError(f"OpenRouter connection error: {e}", 502) from e
+            # Transport errors can embed the proxy URL, so only the type is reported.
+            transport_error = type(e).__name__
+        if response is None:
+            # Raised outside the handler so the transport error is not chained.
+            raise _CompletionError(f"OpenRouter connection error: {transport_error}", 502)
 
         if response.status_code == 429:
             raise _CompletionError(
@@ -405,6 +413,11 @@ class PerplexityService:
             "usage": usage,
             "request_id": str(request_id) if request_id is not None else None,
         }
+
+    def _redact(self, text: str) -> str:
+        """Remove API keys and environment proxy credentials from upstream error text."""
+        proxy_urls = [url for scheme, url in getproxies().items() if scheme != "no"]
+        return redact_credentials(text, proxy_urls, (self.api_key, self.openrouter_api_key))
 
     async def chat(
         self,
@@ -512,32 +525,31 @@ class PerplexityService:
 
         except _CompletionError as e:
             elapsed_ms = _elapsed_ms(start_time)
+            error = self._redact(str(e))
             record_request(
                 url=metrics_url,
                 success=False,
                 status_code=e.status_code,
                 elapsed_ms=elapsed_ms,
                 attempts=1,
-                error=str(e),
+                error=error,
                 request_type="perplexity",
             )
-            return self._error_response(
-                str(e), model, rate_limited=e.rate_limited, provider=backend
-            )
+            return self._error_response(error, model, rate_limited=e.rate_limited, provider=backend)
         except Exception as e:
             elapsed_ms = _elapsed_ms(start_time)
+            # Arbitrary exception text may carry transport credentials; report the type only.
+            error = f"Unexpected error: {type(e).__name__}"
             record_request(
                 url=metrics_url,
                 success=False,
                 status_code=500,
                 elapsed_ms=elapsed_ms,
                 attempts=1,
-                error=f"Unexpected error: {type(e).__name__}: {e}",
+                error=error,
                 request_type="perplexity",
             )
-            return self._error_response(
-                f"Unexpected error: {type(e).__name__}: {e}", model, provider=backend
-            )
+            return self._error_response(error, model, provider=backend)
 
     async def reason(
         self,

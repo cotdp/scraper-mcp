@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import Iterable
 from typing import Any, cast
 from urllib.parse import quote, quote_plus, unquote, urlencode, urlparse
 
@@ -27,6 +28,26 @@ def _is_retryable_http_error(error: requests.HTTPError) -> bool:
     """Return whether an HTTP failure is likely transient."""
     response = error.response
     return response is None or response.status_code in _RETRYABLE_HTTP_STATUS_CODES
+
+
+def redact_credentials(text: str, proxy_urls: Iterable[str], secrets: Iterable[str] = ()) -> str:
+    """Remove proxy URLs, their credentials and other secrets, including URL-encoded forms."""
+    private_values = {secret for secret in secrets if secret}
+    for proxy_url in proxy_urls:
+        private_values.add(proxy_url)
+        parsed = urlparse(proxy_url)
+        for credential in (parsed.username, parsed.password):
+            if credential:
+                private_values.add(unquote(credential))
+
+    encoded_values = {
+        form
+        for value in private_values
+        for form in (value, quote(value, safe=""), quote_plus(value))
+    }
+    for value in sorted(encoded_values, key=len, reverse=True):
+        text = text.replace(value, "[REDACTED]")
+    return text
 
 
 class RequestsProvider(ScraperProvider):
@@ -208,22 +229,8 @@ class RequestsProvider(ScraperProvider):
 
     def _redact_proxy_credentials(self, text: str, proxies: dict[str, str] | None) -> str:
         """Remove configured transport credentials, including URL-encoded forms."""
-        private_values = {self.scrapeops_api_key} if self.scrapeops_api_key else set()
-        for proxy_url in (proxies or {}).values():
-            private_values.add(proxy_url)
-            parsed = urlparse(proxy_url)
-            for credential in (parsed.username, parsed.password):
-                if credential:
-                    private_values.add(unquote(credential))
-
-        encoded_values = {
-            form
-            for value in private_values
-            for form in (value, quote(value, safe=""), quote_plus(value))
-        }
-        for value in sorted(encoded_values, key=len, reverse=True):
-            text = text.replace(value, "[REDACTED]")
-        return text
+        secrets = [self.scrapeops_api_key] if self.scrapeops_api_key else []
+        return redact_credentials(text, (proxies or {}).values(), secrets)
 
     async def scrape(self, url: str, **kwargs: Any) -> ScrapeResult:
         """Scrape content from a URL using requests with caching and retry logic.
