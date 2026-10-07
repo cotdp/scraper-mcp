@@ -22,6 +22,10 @@ reached `main` (`main` gained only #5, the proxy credential boundary, and #3, th
 - [x] Local gate: `uv lock --check`, Ruff check and format, mypy, full pytest suite and a
   production image build with an in-container health check.
 - [x] Remove the snapshot dumps from the final tree; custody remains in commit `0a464b2`.
+- [x] Close the OpenRouter credential leak found in review (2026-10-08): transport and
+  unexpected errors report the exception type only; upstream error text is redacted of API
+  keys and environment proxy credentials before it is returned or recorded in metrics.
+  `tests/test_perplexity_credentials.py` fails on `f53d364` and passes after the fix.
 - [ ] Owner applies the `.env.example` hunk (blocked: agent policy forbids writing `.env*`
   files). Source: `recovery/2026-10-03/blob-c2dc0a44….snapshot` at `0a464b2`; it documents
   `OPENROUTER_API_KEY` and `PERPLEXITY_PROVIDER`, which README and `docs/CONFIGURATION.md`
