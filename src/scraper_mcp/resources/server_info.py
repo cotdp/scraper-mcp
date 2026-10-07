@@ -17,11 +17,12 @@ if TYPE_CHECKING:
 SERVER_VERSION = "0.4.0"
 
 
-def register_server_resources(mcp: FastMCP) -> None:
+def register_server_resources(mcp: FastMCP, *, perplexity_tools_available: bool) -> None:
     """Register server information resources on the MCP server.
 
     Args:
         mcp: The FastMCP server instance
+        perplexity_tools_available: Whether Perplexity tools were registered at startup
     """
 
     @mcp.resource("server://info")
@@ -31,7 +32,7 @@ def register_server_resources(mcp: FastMCP) -> None:
 
         # Determine enabled capabilities
         capabilities = ["scraping", "caching"]
-        if os.getenv("PERPLEXITY_API_KEY"):
+        if perplexity_tools_available:
             capabilities.append("perplexity")
         if os.getenv("ENABLE_CACHE_TOOLS", "").lower() == "true":
             capabilities.append("cache_tools")
@@ -91,8 +92,8 @@ def register_server_resources(mcp: FastMCP) -> None:
             },
         ]
 
-        # Add Perplexity tools if available
-        if os.getenv("PERPLEXITY_API_KEY"):
+        # Add Perplexity tools if available (direct API or via OpenRouter)
+        if perplexity_tools_available:
             tools.extend(
                 [
                     {

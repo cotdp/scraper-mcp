@@ -10,7 +10,9 @@ from scraper_mcp.cache import clear_all_cache, get_cache_stats
 from scraper_mcp.metrics import get_metrics
 from scraper_mcp.models.perplexity import (
     DEFAULT_ENABLED_PERPLEXITY_MODELS,
+    DEFAULT_PERPLEXITY_PROVIDER,
     PERPLEXITY_MODELS,
+    PERPLEXITY_PROVIDERS,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,6 +39,19 @@ def _parse_enabled_models(raw: str | None) -> list[str]:
     return models or list(DEFAULT_ENABLED_PERPLEXITY_MODELS)
 
 
+def _parse_provider(raw: str | None) -> str:
+    """Parse a PERPLEXITY_PROVIDER env value, falling back to the default.
+
+    Args:
+        raw: Provider name ("auto", "perplexity", or "openrouter")
+
+    Returns:
+        A valid provider name
+    """
+    value = (raw or "").strip().lower()
+    return value if value in PERPLEXITY_PROVIDERS else DEFAULT_PERPLEXITY_PROVIDER
+
+
 # Runtime configuration overrides (not persisted)
 _runtime_config: dict[str, Any] = {
     "concurrency": DEFAULT_CONCURRENCY,
@@ -53,6 +68,9 @@ _runtime_config: dict[str, Any] = {
     # Perplexity settings (overridable at runtime via /api/config)
     "perplexity_api_key": os.getenv("PERPLEXITY_API_KEY", ""),
     "perplexity_enabled_models": _parse_enabled_models(os.getenv("PERPLEXITY_ENABLED_MODELS")),
+    # Backend for the Perplexity tools: auto | perplexity | openrouter
+    "perplexity_provider": _parse_provider(os.getenv("PERPLEXITY_PROVIDER")),
+    "openrouter_api_key": os.getenv("OPENROUTER_API_KEY", ""),
 }
 
 # Initialize proxy settings from environment variables if present
@@ -69,11 +87,12 @@ if _http_proxy_env or _https_proxy_env:
     if _no_proxy_env:
         _runtime_config["no_proxy"] = _no_proxy_env
 
-    # Log proxy initialization
-    import logging
-
-    logger = logging.getLogger(__name__)
-    logger.info("Proxy enabled from environment variables")
+    logger.info(
+        "Proxy enabled from environment variables (HTTP_PROXY=%s, HTTPS_PROXY=%s, NO_PROXY=%s)",
+        bool(_http_proxy_env),
+        bool(_https_proxy_env),
+        bool(_no_proxy_env),
+    )
 
 
 def get_config(key: str, default: Any = None) -> Any:
@@ -109,6 +128,7 @@ def _public_config() -> dict[str, Any]:
     """Return a copy of the runtime config with secrets masked for display."""
     public = dict(_runtime_config)
     public["perplexity_api_key"] = _mask_api_key(_runtime_config.get("perplexity_api_key", ""))
+    public["openrouter_api_key"] = _mask_api_key(_runtime_config.get("openrouter_api_key", ""))
     return public
 
 
@@ -155,8 +175,11 @@ def get_current_config() -> dict[str, Any]:
             "verify_ssl": False,
             "perplexity_api_key": "",
             "perplexity_enabled_models": list(DEFAULT_ENABLED_PERPLEXITY_MODELS),
+            "perplexity_provider": DEFAULT_PERPLEXITY_PROVIDER,
+            "openrouter_api_key": "",
         },
         "available_perplexity_models": list(PERPLEXITY_MODELS),
+        "available_perplexity_providers": list(PERPLEXITY_PROVIDERS),
         "note": "Changes are not persisted and will reset on server restart",
     }
 
@@ -187,6 +210,8 @@ def update_config(config_updates: dict[str, Any]) -> dict[str, Any]:
         "verify_ssl",
         "perplexity_api_key",
         "perplexity_enabled_models",
+        "perplexity_provider",
+        "openrouter_api_key",
     }
 
     updated = []
@@ -212,9 +237,19 @@ def update_config(config_updates: dict[str, Any]) -> dict[str, Any]:
             elif key in ("http_proxy", "https_proxy", "no_proxy") and isinstance(value, str):
                 _runtime_config[key] = value
                 updated.append(key)
-            elif key == "perplexity_api_key" and isinstance(value, str):
+            elif key in ("perplexity_api_key", "openrouter_api_key") and isinstance(value, str):
                 _runtime_config[key] = value.strip()
                 updated.append(key)
+            elif key == "perplexity_provider" and isinstance(value, str):
+                cleaned_provider = value.strip().lower()
+                if cleaned_provider in PERPLEXITY_PROVIDERS:
+                    _runtime_config[key] = cleaned_provider
+                    updated.append(key)
+                else:
+                    raise ValueError(
+                        f"Unknown Perplexity provider: '{value}'. "
+                        f"Valid providers: {list(PERPLEXITY_PROVIDERS)}"
+                    )
             elif key == "perplexity_enabled_models" and isinstance(value, list):
                 # Only accept known model names; reject unknown values to surface typos
                 cleaned = [m for m in value if isinstance(m, str) and m in PERPLEXITY_MODELS]

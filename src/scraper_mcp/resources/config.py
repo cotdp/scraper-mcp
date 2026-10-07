@@ -11,7 +11,9 @@ from scraper_mcp.admin.service import (
 )
 from scraper_mcp.models.perplexity import (
     DEFAULT_ENABLED_PERPLEXITY_MODELS,
+    DEFAULT_PERPLEXITY_PROVIDER,
     PERPLEXITY_MODELS,
+    PERPLEXITY_PROVIDERS,
 )
 
 if TYPE_CHECKING:
@@ -33,6 +35,8 @@ DEFAULT_CONFIG = {
     "verify_ssl": False,
     "perplexity_api_key": "",
     "perplexity_enabled_models": list(DEFAULT_ENABLED_PERPLEXITY_MODELS),
+    "perplexity_provider": DEFAULT_PERPLEXITY_PROVIDER,
+    "openrouter_api_key": "",
 }
 
 
@@ -106,6 +110,10 @@ def register_config_resources(mcp: FastMCP) -> None:
         perplexity_config = {
             "api_key": config.get("perplexity_api_key", ""),  # already masked
             "api_key_configured": bool(config.get("perplexity_api_key")),
+            "openrouter_api_key": config.get("openrouter_api_key", ""),  # already masked
+            "openrouter_api_key_configured": bool(config.get("openrouter_api_key")),
+            "provider": config.get("perplexity_provider", DEFAULT_PERPLEXITY_PROVIDER),
+            "available_providers": list(PERPLEXITY_PROVIDERS),
             "enabled_models": config.get(
                 "perplexity_enabled_models", list(DEFAULT_ENABLED_PERPLEXITY_MODELS)
             ),
@@ -113,6 +121,11 @@ def register_config_resources(mcp: FastMCP) -> None:
             "description": {
                 "enabled_models": "Models that may be used. Others are rejected (opt-in).",
                 "default": f"Only {list(DEFAULT_ENABLED_PERPLEXITY_MODELS)} enabled by default.",
+                "provider": (
+                    "Backend serving the Sonar models: 'perplexity' (direct API), "
+                    "'openrouter' (via OpenRouter), or 'auto' (direct preferred, "
+                    "OpenRouter fallback)."
+                ),
             },
         }
         return json.dumps(perplexity_config, indent=2)

@@ -163,7 +163,7 @@ async def cache_stats() -> dict[str, int | float]:
     return get_cache_stats()
 
 
-async def cache_clear_expired() -> dict[str, int]:
+async def cache_clear_expired() -> dict[str, int | str]:
     """Clear expired entries from HTTP cache.
 
     Returns:
@@ -325,15 +325,18 @@ async def perplexity_reason(
 def register_perplexity_tools(mcp: FastMCP) -> None:
     """Register Perplexity AI tools on the MCP server.
 
-    These tools are only registered when PERPLEXITY_API_KEY is set in the
-    environment. They provide web-grounded AI search and reasoning capabilities.
+    These tools are only registered when a usable backend is configured:
+    either PERPLEXITY_API_KEY (direct Perplexity API) or OPENROUTER_API_KEY
+    (Sonar models via OpenRouter). They provide web-grounded AI search and
+    reasoning capabilities.
 
     Args:
         mcp: FastMCP server instance to register tools on
 
     Note:
-        Perplexity tools require a valid API key from https://perplexity.ai
-        Set PERPLEXITY_API_KEY environment variable to enable these tools.
+        Set PERPLEXITY_API_KEY (from https://perplexity.ai) and/or
+        OPENROUTER_API_KEY (from https://openrouter.ai) to enable these tools.
+        The backend is selected via PERPLEXITY_PROVIDER (auto|perplexity|openrouter).
     """
     mcp.tool()(perplexity)
     mcp.tool()(perplexity_reason)

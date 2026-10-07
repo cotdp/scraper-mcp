@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote, quote_plus, unquote, urlencode, urlparse
 
 import requests
 import urllib3
 
-from scraper_mcp.cache_manager import get_cache_manager
+from scraper_mcp.cache_manager import CacheManager, get_cache_manager
 from scraper_mcp.providers.base import ScrapeResult, ScraperProvider
 
 # Configure logging
@@ -19,6 +19,14 @@ logger = logging.getLogger(__name__)
 
 # Suppress InsecureRequestWarning when SSL verification is disabled
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+_RETRYABLE_HTTP_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
+
+
+def _is_retryable_http_error(error: requests.HTTPError) -> bool:
+    """Return whether an HTTP failure is likely transient."""
+    response = error.response
+    return response is None or response.status_code in _RETRYABLE_HTTP_STATUS_CODES
 
 
 class RequestsProvider(ScraperProvider):
@@ -74,6 +82,7 @@ class RequestsProvider(ScraperProvider):
             )
 
         # Get cache manager if caching is enabled
+        self.cache_manager: CacheManager | None
         if cache_enabled:
             self.cache_manager = get_cache_manager()
             logger.info("RequestsProvider initialized with caching enabled")
@@ -268,8 +277,9 @@ class RequestsProvider(ScraperProvider):
             )
 
             # Try to get from cache
-            cached_result = self.cache_manager.get(cache_key)
-            if cached_result is not None:
+            cached_value = self.cache_manager.get(cache_key)
+            if cached_value is not None:
+                cached_result = cast(ScrapeResult, cached_value)
                 logger.debug(f"Cache HIT for URL: {original_url}")
                 # Add cache metadata
                 cached_result.metadata["from_cache"] = True
@@ -284,17 +294,14 @@ class RequestsProvider(ScraperProvider):
 
         while attempt <= max_retries:
             try:
-                # Run requests in thread pool to avoid blocking
-                loop = asyncio.get_event_loop()
-                response = await loop.run_in_executor(
-                    None,
-                    lambda: self.session.get(
-                        request_url,
-                        headers=headers,
-                        timeout=timeout,
-                        proxies=proxies,
-                        verify=verify_ssl,
-                    ),
+                # Run requests in a worker thread to avoid blocking the event loop.
+                response = await asyncio.to_thread(
+                    self.session.get,
+                    request_url,
+                    headers=headers,
+                    timeout=timeout,
+                    proxies=proxies,
+                    verify=verify_ssl,
                 )
 
                 # Raise for bad status codes
@@ -357,8 +364,8 @@ class RequestsProvider(ScraperProvider):
                     last_exception = e
                 attempt += 1
 
-                retryable = isinstance(
-                    e, (requests.Timeout, requests.ConnectionError, requests.HTTPError)
+                retryable = isinstance(e, (requests.Timeout, requests.ConnectionError)) or (
+                    isinstance(e, requests.HTTPError) and _is_retryable_http_error(e)
                 )
                 if not retryable or attempt > max_retries:
                     break

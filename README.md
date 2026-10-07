@@ -40,7 +40,10 @@ Try it:
 ### Perplexity AI Integration
 - **Web search**: AI-powered search with citations (`perplexity` tool)
 - **Reasoning**: Complex analysis with step-by-step reasoning (`perplexity_reason` tool)
-- Requires `PERPLEXITY_API_KEY` environment variable (overridable at runtime)
+- Requires `PERPLEXITY_API_KEY` and/or `OPENROUTER_API_KEY` (overridable at runtime)
+- **OpenRouter backend**: serve the same Sonar models via OpenRouter — set
+  `PERPLEXITY_PROVIDER=openrouter` (or leave on `auto` to fall back when only an
+  OpenRouter key is present)
 - **Model allowlist (opt-in)**: only `sonar` is enabled by default; `sonar-pro`,
   `sonar-reasoning`, `sonar-reasoning-pro`, and `sonar-deep-research` must be enabled
   explicitly to control cost (see [docs/CONFIGURATION.md](docs/CONFIGURATION.md#perplexity-ai))
@@ -153,8 +156,11 @@ docker run -d -p 8000:8000 --name scraper-mcp ghcr.io/cotdp/scraper-mcp:latest
 # With JavaScript rendering (requires more memory)
 docker run -d -p 8000:8000 --memory=1g --name scraper-mcp ghcr.io/cotdp/scraper-mcp:latest
 
-# With Perplexity AI
+# With Perplexity AI (direct API)
 docker run -d -p 8000:8000 -e PERPLEXITY_API_KEY=your_key ghcr.io/cotdp/scraper-mcp:latest
+
+# With Perplexity via OpenRouter
+docker run -d -p 8000:8000 -e OPENROUTER_API_KEY=your_key ghcr.io/cotdp/scraper-mcp:latest
 ```
 
 ### Docker Compose
@@ -226,8 +232,11 @@ Your cache data persists in the named volume across upgrades.
 Create a `.env` file for custom settings:
 
 ```bash
-# Perplexity AI (optional)
+# Perplexity AI (optional; either key enables the AI tools)
 PERPLEXITY_API_KEY=your_key_here
+# ...or via OpenRouter
+OPENROUTER_API_KEY=your_key_here
+PERPLEXITY_PROVIDER=openrouter  # auto | perplexity | openrouter (default: auto)
 
 # JavaScript rendering (optional, requires Playwright)
 PLAYWRIGHT_MAX_CONTEXTS=5       # Max concurrent browser contexts

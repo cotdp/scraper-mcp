@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -33,6 +34,8 @@ ENABLE_CACHE_TOOLS = os.getenv("ENABLE_CACHE_TOOLS", "false").lower() in ("true"
 # Set ENABLE_RESOURCES=true or ENABLE_PROMPTS=true to enable them
 ENABLE_RESOURCES_ENV = os.getenv("ENABLE_RESOURCES", "false").lower() in ("true", "1", "yes")
 ENABLE_PROMPTS_ENV = os.getenv("ENABLE_PROMPTS", "false").lower() in ("true", "1", "yes")
+
+Transport = Literal["stdio", "sse", "streamable-http"]
 
 
 # Default allowed hosts/origins for Docker environments
@@ -122,8 +125,9 @@ register_scraping_tools(mcp)
 if ENABLE_CACHE_TOOLS:
     register_cache_tools(mcp)
 
-# Register Perplexity AI tools (if API key is configured)
-if PerplexityService.is_available():
+# Snapshot availability because tool registration only happens during startup.
+PERPLEXITY_TOOLS_AVAILABLE = PerplexityService.is_available()
+if PERPLEXITY_TOOLS_AVAILABLE:
     register_perplexity_tools(mcp)
 
 
@@ -140,7 +144,7 @@ mcp.custom_route("/", methods=["GET"])(dashboard_view)
 
 
 def run_server(
-    transport: str = "streamable-http",
+    transport: Transport = "streamable-http",
     host: str = "0.0.0.0",
     port: int = 8000,
     enable_resources: bool = False,
@@ -159,7 +163,10 @@ def run_server(
     if enable_resources or ENABLE_RESOURCES_ENV:
         from scraper_mcp.resources import register_resources
 
-        register_resources(mcp)
+        register_resources(
+            mcp,
+            perplexity_tools_available=PERPLEXITY_TOOLS_AVAILABLE,
+        )
 
     # Register prompts if enabled via CLI flag OR environment variable
     if enable_prompts or ENABLE_PROMPTS_ENV:

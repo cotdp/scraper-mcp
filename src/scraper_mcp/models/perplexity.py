@@ -19,6 +19,16 @@ PERPLEXITY_MODELS: tuple[str, ...] = (
 # the more expensive models must be enabled explicitly (opt-in) to control cost.
 DEFAULT_ENABLED_PERPLEXITY_MODELS: tuple[str, ...] = ("sonar",)
 
+# Backends that can serve Perplexity Sonar models. "auto" picks the first
+# provider with a configured API key (direct Perplexity preferred).
+PERPLEXITY_PROVIDERS: tuple[str, ...] = ("auto", "perplexity", "openrouter")
+
+DEFAULT_PERPLEXITY_PROVIDER = "auto"
+
+# OpenRouter serves the same models under a vendor-prefixed slug,
+# e.g. "sonar" -> "perplexity/sonar".
+OPENROUTER_MODEL_PREFIX = "perplexity/"
+
 
 class PerplexityResponse(BaseModel):
     """Response model for Perplexity AI operations."""

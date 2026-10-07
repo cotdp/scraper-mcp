@@ -35,14 +35,38 @@ python -m scraper_mcp --disable-resources --disable-prompts
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PERPLEXITY_API_KEY` | - | API key (enables AI tools when set). Overridable at runtime. |
+| `PERPLEXITY_API_KEY` | - | Direct Perplexity API key. Overridable at runtime. |
+| `OPENROUTER_API_KEY` | - | OpenRouter API key (serves Sonar models as `perplexity/<model>`). Overridable at runtime. |
+| `PERPLEXITY_PROVIDER` | `auto` | Backend: `auto` (direct preferred, OpenRouter fallback), `perplexity`, or `openrouter`. Overridable at runtime. |
 | `PERPLEXITY_ENABLED_MODELS` | `sonar` | Comma-separated allowlist of usable models (opt-in). |
 | `PERPLEXITY_MODEL` | sonar | Default model for the `perplexity` tool |
 | `PERPLEXITY_REASONING_MODEL` | sonar-reasoning-pro | Model used by the `perplexity_reason` tool |
 | `PERPLEXITY_TEMPERATURE` | 0.3 | Default temperature |
 | `PERPLEXITY_MAX_TOKENS` | 4000 | Default max tokens |
 
-Get your API key from [Perplexity AI](https://www.perplexity.ai/).
+The AI tools are enabled when **either** API key is set. Get keys from
+[Perplexity AI](https://www.perplexity.ai/) or [OpenRouter](https://openrouter.ai/).
+
+#### Backend selection (Perplexity vs OpenRouter)
+
+Both backends serve the same Sonar models; tools always take the bare model name
+(`sonar`, `sonar-pro`, …) and the OpenRouter backend maps it to the
+`perplexity/<model>` slug automatically. Responses include a
+`metadata.provider` field showing which backend served the request.
+
+```bash
+# Route all Perplexity tool calls through OpenRouter
+OPENROUTER_API_KEY=sk-or-...
+PERPLEXITY_PROVIDER=openrouter
+```
+
+…or switch at runtime:
+
+```bash
+curl -X POST http://localhost:8000/api/config \
+  -H 'Content-Type: application/json' \
+  -d '{"config": {"openrouter_api_key": "sk-or-...", "perplexity_provider": "openrouter"}}'
+```
 
 #### Model allowlist (opt-in)
 
