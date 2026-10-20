@@ -1,8 +1,12 @@
 """Admin API routes for stats, config, and cache management."""
 
+import json
+import logging
+
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from scraper_mcp.admin.security import require_admin
 from scraper_mcp.admin.service import (
     clear_cache,
     get_current_config,
@@ -12,6 +16,8 @@ from scraper_mcp.admin.service import (
 from scraper_mcp.cache_manager import get_cache_manager
 from scraper_mcp.metrics import get_request_by_id
 from scraper_mcp.providers.base import ScrapeResult
+
+logger = logging.getLogger(__name__)
 
 
 async def health_check(request: Request) -> JSONResponse:
@@ -23,6 +29,7 @@ async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "healthy"})
 
 
+@require_admin
 async def api_stats(request: Request) -> JSONResponse:
     """Get server statistics and metrics as JSON.
 
@@ -33,6 +40,7 @@ async def api_stats(request: Request) -> JSONResponse:
     return JSONResponse(stats)
 
 
+@require_admin
 async def api_cache_clear(request: Request) -> JSONResponse:
     """Clear all cache entries.
 
@@ -42,10 +50,14 @@ async def api_cache_clear(request: Request) -> JSONResponse:
     try:
         result = clear_cache()
         return JSONResponse(result)
-    except Exception as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Admin cache clear failed")
+        return JSONResponse(
+            {"status": "error", "message": "Cache could not be cleared"}, status_code=500
+        )
 
 
+@require_admin
 async def api_config_get(request: Request) -> JSONResponse:
     """Get current runtime configuration.
 
@@ -56,6 +68,7 @@ async def api_config_get(request: Request) -> JSONResponse:
     return JSONResponse(config)
 
 
+@require_admin
 async def api_config_update(request: Request) -> JSONResponse:
     """Update runtime configuration.
 
@@ -63,14 +76,29 @@ async def api_config_update(request: Request) -> JSONResponse:
         JSONResponse with operation status
     """
     try:
-        body = await request.json()
-        config_updates = body.get("config", {})
+        raw_body = bytearray()
+        async for chunk in request.stream():
+            if len(raw_body) + len(chunk) > 65536:
+                return JSONResponse(
+                    {"status": "error", "message": "Configuration body is too large"},
+                    status_code=413,
+                )
+            raw_body.extend(chunk)
+        body = json.loads(raw_body)
+        if not isinstance(body, dict) or not isinstance(body.get("config"), dict):
+            return JSONResponse(
+                {"status": "error", "message": "Expected a config object"}, status_code=400
+            )
+        config_updates = body["config"]
         result = update_config(config_updates)
         return JSONResponse(result)
-    except Exception as e:
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+    except (ValueError, UnicodeDecodeError, RecursionError):
+        return JSONResponse(
+            {"status": "error", "message": "Invalid configuration payload"}, status_code=400
+        )
 
 
+@require_admin
 async def api_request_details(request: Request) -> JSONResponse:
     """Get detailed information about a specific request by ID.
 

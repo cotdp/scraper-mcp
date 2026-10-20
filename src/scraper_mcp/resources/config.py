@@ -32,7 +32,7 @@ DEFAULT_CONFIG = {
     "http_proxy": "",
     "https_proxy": "",
     "no_proxy": "",
-    "verify_ssl": False,
+    "verify_ssl": True,
     "perplexity_api_key": "",
     "perplexity_enabled_models": list(DEFAULT_ENABLED_PERPLEXITY_MODELS),
     "perplexity_provider": DEFAULT_PERPLEXITY_PROVIDER,
@@ -71,7 +71,7 @@ def register_config_resources(mcp: FastMCP) -> None:
             "timeout": config.get("default_timeout", 30),
             "max_retries": config.get("default_max_retries", 3),
             "concurrency": config.get("concurrency", DEFAULT_CONCURRENCY),
-            "verify_ssl": config.get("verify_ssl", False),
+            "verify_ssl": config.get("verify_ssl", True),
         }
         return json.dumps(scraping_config, indent=2)
 

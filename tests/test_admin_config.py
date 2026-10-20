@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 
@@ -139,3 +140,91 @@ class TestUpdateConfigOpenRouter:
     def test_providers_advertised_in_current_config(self) -> None:
         current = get_current_config()
         assert current["available_perplexity_providers"] == ["auto", "perplexity", "openrouter"]
+
+
+class TestSecretConfigRoundtrip:
+    @pytest.mark.parametrize("key", ["http_proxy", "https_proxy"])
+    def test_proxy_secret_never_leaves_config_and_roundtrips(self, key: str) -> None:
+        secret = "http://username:password@proxy.example:8080/token?api_key=other-secret"
+        updated = update_config({key: secret})
+        public = get_current_config()["config"]
+        assert public[key] == "[REDACTED]"
+        assert secret not in str(updated)
+        assert "username" not in str(public)
+        assert "other-secret" not in str(public)
+
+        # The dashboard posts its displayed values alongside unrelated changes.
+        result = update_config({key: public[key], "default_timeout": 42})
+        assert get_config(key) == secret
+        assert key not in result["updated"]
+        assert get_config("default_timeout") == 42
+
+        update_config({"concurrency": 4})
+        assert get_config(key) == secret
+        update_config({key: ""})
+        assert get_config(key) == ""
+        assert get_current_config()["config"][key] == ""
+
+    @pytest.mark.parametrize("key", ["perplexity_api_key", "openrouter_api_key"])
+    def test_masked_api_key_roundtrip_preserves_value(self, key: str) -> None:
+        secret = "example-secret-key-1234567890"
+        update_config({key: secret})
+        update_config({key: get_current_config()["config"][key]})
+        assert get_config(key) == secret
+        update_config({key: ""})
+        assert get_config(key) == ""
+
+    def test_validation_failure_does_not_partially_mutate_config(self) -> None:
+        before = get_config("default_timeout")
+        with pytest.raises(ValueError):
+            update_config({"default_timeout": 99, "perplexity_provider": "invalid"})
+        assert get_config("default_timeout") == before
+
+    def test_redacted_placeholder_is_not_a_new_proxy(self) -> None:
+        update_config({"http_proxy": ""})
+        with pytest.raises(ValueError, match="masked proxy"):
+            update_config({"http_proxy": "[REDACTED]"})
+        assert get_config("http_proxy") == ""
+
+    @pytest.mark.parametrize("key", ["perplexity_api_key", "openrouter_api_key"])
+    @pytest.mark.parametrize("old_secret", ["short", "previous-api-key-1234567890"])
+    def test_stale_mask_preserves_rotated_api_key(self, key: str, old_secret: str) -> None:
+        update_config({key: old_secret})
+        stale_mask = get_current_config()["config"][key]
+        current_secret = "rotated-api-key-0987654321"
+        update_config({key: current_secret})
+        result = update_config({key: f" {stale_mask} "})
+        assert get_config(key) == current_secret
+        assert key not in result["updated"]
+
+    @pytest.mark.parametrize("key", ["perplexity_api_key", "openrouter_api_key"])
+    def test_mask_cannot_be_installed_as_new_api_key(self, key: str) -> None:
+        update_config({key: ""})
+        with pytest.raises(ValueError, match="masked proxy URL or API key"):
+            update_config({key: "***"})
+        assert get_config(key) == ""
+
+    @pytest.mark.parametrize("invalid_value", [False, None, 0, []])
+    def test_false_values_do_not_clear_secrets_or_provider(self, invalid_value: Any) -> None:
+        keys = ("http_proxy", "https_proxy", "perplexity_api_key", "openrouter_api_key")
+        update_config(dict.fromkeys(keys, "configured-secret-1234567890"))
+        before = dict(admin_service._runtime_config)
+        result = update_config(dict.fromkeys((*keys, "perplexity_provider"), invalid_value))
+        assert result["updated"] == []
+        assert admin_service._runtime_config == before
+
+
+@pytest.mark.parametrize("invalid_value", [True, False])
+def test_boolean_values_do_not_replace_numeric_settings(invalid_value: bool) -> None:
+    keys = (
+        "concurrency",
+        "default_timeout",
+        "default_max_retries",
+        "cache_ttl_default",
+        "cache_ttl_static",
+        "cache_ttl_realtime",
+    )
+    before = {key: get_config(key) for key in keys}
+    result = update_config(dict.fromkeys(keys, invalid_value))
+    assert result["updated"] == []
+    assert {key: get_config(key) for key in keys} == before

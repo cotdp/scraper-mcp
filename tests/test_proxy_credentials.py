@@ -29,6 +29,7 @@ API_KEY = "synthetic-scrapeops/key+token"
 PROXY_USER = "synthetic-proxy-user"
 PROXY_PASSWORD = "synthetic-proxy/password+token"
 PROXY_URL = f"http://{PROXY_USER}:{quote(PROXY_PASSWORD, safe='')}@proxy.example:8080"
+ADMIN_TOKEN = "synthetic-admin-token"
 TOOLS = [
     router.scrape_url,
     router.scrape_url_html,
@@ -47,6 +48,7 @@ def assert_no_credentials(value):
 @pytest.fixture
 def proxy_boundary(monkeypatch, tmp_path):
     monkeypatch.setenv("SCRAPEOPS_API_KEY", API_KEY)
+    monkeypatch.setenv("SCRAPER_ADMIN_TOKEN", ADMIN_TOKEN)
     monkeypatch.setattr(
         admin_service,
         "_runtime_config",
@@ -123,8 +125,21 @@ async def test_results_cache_and_logs_exclude_credentials(
     request_id = metrics.recent_requests[-1].request_id
     resource = await mcp.read_resource(f"cache://request/{request_id}")
     details = await api_request_details(
-        Request({"type": "http", "path_params": {"request_id": request_id}})
+        Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "scheme": "http",
+                "path": f"/api/requests/{request_id}/details",
+                "path_params": {"request_id": request_id},
+                "headers": [
+                    (b"host", b"localhost:8000"),
+                    (b"authorization", f"Bearer {ADMIN_TOKEN}".encode()),
+                ],
+            }
+        )
     )
+    assert details.status_code == 200
     for output in (
         fresh.model_dump_json(),
         cached.model_dump_json(),
@@ -227,7 +242,9 @@ async def test_permanent_http_error_is_not_retried_and_stays_sanitized(
 async def test_legacy_unsafe_cache_is_not_returned(proxy_boundary, monkeypatch, legacy_kind):
     provider, cache, _metrics = proxy_boundary
     provider.scrapeops_enabled = False
-    key = cache.generate_cache_key(TARGET, headers={"User-Agent": provider.user_agent})
+    key = cache.generate_cache_key(
+        TARGET, headers={"User-Agent": provider.user_agent}, verify_ssl=True
+    )
     legacy = ScrapeResult(
         url=provider._build_scrapeops_url(TARGET) if legacy_kind == "scrapeops_url" else TARGET,
         content="<p>Legacy result</p>",

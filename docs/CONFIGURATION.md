@@ -8,28 +8,65 @@ Complete configuration reference for Scraper MCP.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TRANSPORT` | streamable-http | Transport type: `streamable-http` or `sse` |
-| `HOST` | 0.0.0.0 | Host to bind to |
-| `PORT` | 8000 | Port to bind to |
 | `CACHE_DIR` | /app/cache | Cache directory path |
 | `ENABLE_CACHE_TOOLS` | false | Expose cache management tools |
-| `DISABLE_RESOURCES` | false | Disable MCP resources |
-| `DISABLE_PROMPTS` | false | Disable MCP prompts |
+| `ENABLE_RESOURCES` | false | Expose MCP resources |
+| `ENABLE_PROMPTS` | false | Expose MCP prompts |
+| `SCRAPER_ADMIN_TOKEN` | unset | Required for dashboard and all admin API routes |
+| `SCRAPER_ADMIN_ALLOWED_ORIGINS` | unset | Additional exact browser origins for authenticated administration; comma-separated |
+
+Transport, host, and port are positional CLI arguments, not environment settings:
+`python -m scraper_mcp streamable-http 127.0.0.1 8000`. The command-line default is
+loopback. The Docker command explicitly listens on `0.0.0.0:8000` inside the
+container; Compose publishes that port only on host loopback.
 
 ### Feature Flags
 
-Resources and prompts are enabled by default. To reduce context overhead for LLM clients:
+Resources and prompts are disabled by default to reduce context overhead:
 
 ```bash
 # Via environment variables
-DISABLE_RESOURCES=true
-DISABLE_PROMPTS=true
+ENABLE_RESOURCES=true
+ENABLE_PROMPTS=true
 
 # Via CLI flags
-python -m scraper_mcp --disable-resources
-python -m scraper_mcp --disable-prompts
-python -m scraper_mcp --disable-resources --disable-prompts
+python -m scraper_mcp --enable-resources
+python -m scraper_mcp --enable-prompts
 ```
+
+### Administrative access
+
+Inject `SCRAPER_ADMIN_TOKEN` through the deployment's secret mechanism. All
+dashboard and `/api/*` requests require it, even over loopback. With no token,
+these routes return HTTP 503; missing or incorrect credentials return HTTP 401.
+The browser prompts for username `admin` and the token as its password. API
+requests use `Authorization: Bearer <token>`. Use HTTPS for remote administration.
+
+All administrative `curl` examples below require this additional header:
+
+```bash
+-H "Authorization: Bearer $SCRAPER_ADMIN_TOKEN"
+```
+
+Mutations also require `Content-Type: application/json`. Cross-origin requests
+are rejected unless their exact origin is in `SCRAPER_ADMIN_ALLOWED_ORIGINS`.
+For an HTTPS reverse proxy, set its origin explicitly, for example
+`https://scraper.example.com`; do not use wildcards. Forwarded headers do not
+grant access. This token does not protect the MCP endpoint: keep that endpoint
+on a trusted network or behind an authenticated gateway.
+
+Proxy URLs are returned as `[REDACTED]`. Omitted fields and unchanged mask values
+preserve existing secrets; `""` clears a field. API keys remain masked.
+Configuration changes are atomic and reset on restart. TLS certificate
+verification defaults to enabled; configure trusted CAs for private services.
+
+### Cache migration
+
+Version 0.5.0 replaces pickle-backed DiskCache with SQLite and strict JSON.
+The new `cache-v1.sqlite3` starts empty. Old databases and value files are not
+opened, migrated, or deleted. Cache size limits and reported `size_bytes` measure
+encoded keys and values; SQLite page, index, and WAL overhead is additional.
+Restrict the cache directory to the service account.
 
 ### Perplexity AI
 
@@ -137,7 +174,7 @@ docker-compose up -d
 ### With Docker Run
 
 ```bash
-docker run -p 8000:8000 \
+docker run -p 127.0.0.1:8000:8000 \
   -e HTTP_PROXY=http://proxy.example.com:8080 \
   -e HTTPS_PROXY=http://proxy.example.com:8080 \
   -e NO_PROXY=localhost,127.0.0.1,.local \

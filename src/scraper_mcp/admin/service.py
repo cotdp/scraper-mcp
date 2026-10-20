@@ -64,7 +64,7 @@ _runtime_config: dict[str, Any] = {
     "http_proxy": "",
     "https_proxy": "",
     "no_proxy": "",
-    "verify_ssl": False,  # SSL certificate verification (disabled by default)
+    "verify_ssl": True,
     # Perplexity settings (overridable at runtime via /api/config)
     "perplexity_api_key": os.getenv("PERPLEXITY_API_KEY", ""),
     "perplexity_enabled_models": _parse_enabled_models(os.getenv("PERPLEXITY_ENABLED_MODELS")),
@@ -129,6 +129,10 @@ def _public_config() -> dict[str, Any]:
     public = dict(_runtime_config)
     public["perplexity_api_key"] = _mask_api_key(_runtime_config.get("perplexity_api_key", ""))
     public["openrouter_api_key"] = _mask_api_key(_runtime_config.get("openrouter_api_key", ""))
+    # Proxy URLs can carry credentials in userinfo, paths, or query strings.
+    # Treat the entire URL as a secret instead of guessing its provider's format.
+    for key in ("http_proxy", "https_proxy"):
+        public[key] = "[REDACTED]" if _runtime_config.get(key) else ""
     return public
 
 
@@ -172,7 +176,7 @@ def get_current_config() -> dict[str, Any]:
             "http_proxy": "",
             "https_proxy": "",
             "no_proxy": "",
-            "verify_ssl": False,
+            "verify_ssl": True,
             "perplexity_api_key": "",
             "perplexity_enabled_models": list(DEFAULT_ENABLED_PERPLEXITY_MODELS),
             "perplexity_provider": DEFAULT_PERPLEXITY_PROVIDER,
@@ -215,35 +219,56 @@ def update_config(config_updates: dict[str, Any]) -> dict[str, Any]:
     }
 
     updated = []
+    candidate = dict(_runtime_config)
     for key, value in config_updates.items():
         if key in valid_keys:
+            if key in (
+                "http_proxy",
+                "https_proxy",
+                "perplexity_api_key",
+                "openrouter_api_key",
+            ) and isinstance(value, str):
+                display_value = value.strip()
+                is_masked = display_value == "[REDACTED]" or (
+                    key in ("perplexity_api_key", "openrouter_api_key")
+                    and (
+                        display_value == "***"
+                        or (len(display_value) == 11 and display_value[4:7] == "...")
+                    )
+                )
+                if is_masked:
+                    # A stale browser form must not replace a newly rotated key
+                    # with an older display mask.
+                    if candidate[key]:
+                        continue
+                    raise ValueError("A masked proxy URL or API key cannot be used as a new value")
             # Basic type validation
-            if key == "concurrency" and isinstance(value, int) and 1 <= value <= 50:
-                _runtime_config[key] = value
+            if key == "concurrency" and type(value) is int and 1 <= value <= 50:
+                candidate[key] = value
                 updated.append(key)
             elif (
                 key in ("default_timeout", "default_max_retries")
-                and isinstance(value, int)
+                and type(value) is int
                 and value > 0
             ):
-                _runtime_config[key] = value
+                candidate[key] = value
                 updated.append(key)
-            elif key.startswith("cache_ttl_") and isinstance(value, int) and value >= 0:
-                _runtime_config[key] = value
+            elif key.startswith("cache_ttl_") and type(value) is int and value >= 0:
+                candidate[key] = value
                 updated.append(key)
             elif key in ("proxy_enabled", "verify_ssl") and isinstance(value, bool):
-                _runtime_config[key] = value
+                candidate[key] = value
                 updated.append(key)
             elif key in ("http_proxy", "https_proxy", "no_proxy") and isinstance(value, str):
-                _runtime_config[key] = value
+                candidate[key] = value
                 updated.append(key)
             elif key in ("perplexity_api_key", "openrouter_api_key") and isinstance(value, str):
-                _runtime_config[key] = value.strip()
+                candidate[key] = value.strip()
                 updated.append(key)
             elif key == "perplexity_provider" and isinstance(value, str):
                 cleaned_provider = value.strip().lower()
                 if cleaned_provider in PERPLEXITY_PROVIDERS:
-                    _runtime_config[key] = cleaned_provider
+                    candidate[key] = cleaned_provider
                     updated.append(key)
                 else:
                     raise ValueError(
@@ -254,7 +279,7 @@ def update_config(config_updates: dict[str, Any]) -> dict[str, Any]:
                 # Only accept known model names; reject unknown values to surface typos
                 cleaned = [m for m in value if isinstance(m, str) and m in PERPLEXITY_MODELS]
                 if len(cleaned) == len(value):
-                    _runtime_config[key] = cleaned
+                    candidate[key] = cleaned
                     updated.append(key)
                 else:
                     invalid = [m for m in value if m not in PERPLEXITY_MODELS]
@@ -263,6 +288,7 @@ def update_config(config_updates: dict[str, Any]) -> dict[str, Any]:
                         f"Valid models: {list(PERPLEXITY_MODELS)}"
                     )
 
+    _runtime_config.update(candidate)
     return {
         "status": "success",
         "message": f"Updated {len(updated)} config value(s)",
