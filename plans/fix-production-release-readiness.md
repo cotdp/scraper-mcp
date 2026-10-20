@@ -32,9 +32,13 @@ code over subsequent credential fixes.
 - [x] Review the SearXNG proposal against release scope and either implement a
       bounded integration or record a concrete follow-up.
 - [x] Prepare the next version, migration notes, release notes, and safe publish procedure.
-- [ ] Run full local validation, production-container smoke tests, and an independent
+- [x] Run full local validation, production-container smoke tests, and an independent
       review; resolve findings and verify hosted CI on the final commit.
-- [ ] Ship one clean, pushed PR and a session summary with remaining owner actions.
+- [x] Ship one clean, pushed PR and a session summary with remaining owner actions.
+- [?] Clear production publication (blocked: 25 unique critical/high upstream OS
+      advisories have no available fixes in the scanned Debian packages; owner
+      security review and merge remain required).
+- [?] Verify live OpenRouter account behavior (blocked: no injected OpenRouter key).
 
 ## Decisions and evidence
 
@@ -84,5 +88,15 @@ code over subsequent credential fixes.
   disabled. Zero approving reviews permits the solo owner to merge.
 - Container scanning found outdated bootstrap tools outside the Python lockfile.
   Update uv to 0.13.3 (patched rustls) and OS packages; remove unused bootstrap
-  pip and gcc/libxml2/libxslt development packages. Validate the rebuilt image
-  and record remaining upstream findings before handoff.
+  pip and gcc/libxml2/libxslt development packages. The rebuilt image passes the
+  complete offline smoke. Trivy reports no Python, Node-runtime, or uv findings
+  and no available OS fixes; remaining OS counts are 1 critical, 67 high,
+  146 medium, 145 low, and 5 unknown package/advisory pairs.
+- The critical OS finding is CVE-2026-6653 in libxml2 pulled in by the graphics
+  stack through libllvm19. Application lxml uses bundled libxml2 2.14.6, but
+  graphics-path reachability remains unconfirmed. Do not treat the application
+  audit as clearing the image. Full evidence and follow-up steps are in
+  `docs/releases/0.5.0-validation.md`.
+- Hosted `quality`, `Analyze (python)`, and CodeQL checks passed at implementation
+  commit `0d6c5a2`. The final documentation handoff also runs these checks; the PR
+  records the current result. PR: https://github.com/cotdp/scraper-mcp/pull/6.
