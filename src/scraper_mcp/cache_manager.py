@@ -1,4 +1,4 @@
-"""HTTP caching manager using diskcache."""
+"""HTTP caching manager using SQLite and strict JSON serialization."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-import diskcache  # type: ignore[import-untyped]
+from scraper_mcp.cache_storage import JsonCache
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ REALTIME_DATA_TTL = 300  # 5 minutes
 
 
 class CacheManager:
-    """Thread-safe and process-safe cache manager using diskcache.
+    """Thread-safe and process-safe cache manager using SQLite and JSON.
 
     Features:
     - Persistent disk-based caching with SQLite backend
@@ -61,14 +61,13 @@ class CacheManager:
         self.cache_dir = cache_dir
         self.size_limit = size_limit
 
-        # Initialize diskcache.Cache
+        # Never deserialize or migrate the legacy pickle-based diskcache files.
         try:
-            self.cache = diskcache.Cache(
+            self.cache = JsonCache(
                 directory=str(cache_dir),
                 size_limit=size_limit,
                 eviction_policy=eviction_policy,
                 statistics=enable_statistics,
-                cull_limit=10,  # Remove up to 10 items when size limit reached
             )
             logger.info(f"Cache initialized at {cache_dir} with {size_limit / 1e9:.1f}GB limit")
         except Exception as e:
@@ -89,11 +88,11 @@ class CacheManager:
 
         # Try to create cache directory
         try:
-            cache_path.mkdir(parents=True, exist_ok=True)
+            cache_path.mkdir(mode=0o700, parents=True, exist_ok=True)
         except (OSError, PermissionError):
             # Fallback to local .cache directory for development/testing
             cache_path = Path.cwd() / ".cache"
-            cache_path.mkdir(parents=True, exist_ok=True)
+            cache_path.mkdir(mode=0o700, parents=True, exist_ok=True)
             logger.info(f"Could not create cache at {cache_dir}, using fallback: {cache_path}")
 
         return cache_path
@@ -234,16 +233,16 @@ class CacheManager:
             logger.error(f"Cache expire error: {e}")
             return 0
 
-    def get_stats(self) -> dict[str, int | float]:
+    def get_stats(self) -> dict[str, int | float | str]:
         """Get cache statistics.
 
         Returns:
             Dictionary with cache statistics
         """
-        stats = {}
+        stats: dict[str, int | float | str] = {}
 
         try:
-            # Get cache volume (current size)
+            # Encoded key/value size; SQLite page/index/WAL overhead is excluded.
             volume = self.cache.volume()
             volume_mb = volume / (1024 * 1024)
 

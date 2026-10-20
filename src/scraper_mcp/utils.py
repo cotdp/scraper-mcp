@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from typing import cast
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
-from markdownify import markdownify  # type: ignore[import-untyped]
+from markdownify import markdownify
 
 
 def html_to_markdown(html: str, strip_tags: list[str] | None = None) -> str:
@@ -29,7 +28,7 @@ def html_to_markdown(html: str, strip_tags: list[str] | None = None) -> str:
                 element.decompose()
 
     # Convert to markdown
-    markdown = cast(str, markdownify(str(soup), heading_style="ATX"))
+    markdown = markdownify(str(soup), heading_style="ATX")
     return markdown.strip()
 
 

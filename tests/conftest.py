@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from pathlib import Path
+
 import pytest
 
-from scraper_mcp.cache import clear_all_cache
+from scraper_mcp import cache_manager
 
 
 @pytest.fixture(autouse=True)
-def clear_cache_between_tests():
-    """Clear cache before each test to prevent interference."""
-    clear_all_cache()
-    yield
-    clear_all_cache()
+def isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Keep tests away from the configured persistent cache and from each other."""
+    with cache_manager.CacheManager(cache_dir=tmp_path / "cache") as cache:
+        monkeypatch.setattr(cache_manager, "_cache_manager", cache)
+        yield
 
 
 @pytest.fixture

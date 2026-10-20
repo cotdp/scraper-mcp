@@ -1,4 +1,4 @@
-"""Tests for HTTP caching functionality using diskcache."""
+"""Tests for HTTP caching functionality using SQLite and JSON."""
 
 from __future__ import annotations
 

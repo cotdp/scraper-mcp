@@ -1,4 +1,4 @@
-"""HTTP caching utilities using diskcache cache manager."""
+"""HTTP caching utilities using the SQLite/JSON cache manager."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 
-def get_cache_stats() -> dict[str, int | float]:
+def get_cache_stats() -> dict[str, int | float | str]:
     """Get HTTP cache statistics.
 
     Returns:
