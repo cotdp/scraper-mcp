@@ -20,6 +20,8 @@ def require(condition: bool, message: str) -> None:
 async def main() -> None:
     """Run isolated, synthetic checks and shut the temporary server down cleanly."""
     require(os.getuid() != 0, "The production image must run as a non-root user")
+    require(not os.access("/app/src", os.W_OK), "The service must not own application code")
+    require(not os.access("/app/.venv", os.W_OK), "The service must not own installed dependencies")
     for name in (
         "HTTP_PROXY",
         "HTTPS_PROXY",
@@ -147,6 +149,7 @@ async def main() -> None:
                 {
                     "version": version("scraper-mcp"),
                     "non_root": True,
+                    "read_only_application": True,
                     "health": True,
                     "admin_authentication": True,
                     "tls_verification_default": True,

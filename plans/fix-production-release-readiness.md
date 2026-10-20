@@ -83,6 +83,6 @@ code over subsequent credential fixes.
   GitHub Actions, including for administrators; force pushes and deletion are
   disabled. Zero approving reviews permits the solo owner to merge.
 - Container scanning found outdated bootstrap tools outside the Python lockfile.
-  Update uv to 0.13.3 (patched rustls), pip to 26.2.1, and OS packages; remove
-  unused gcc/libxml2/libxslt development packages. Validate the rebuilt image
+  Update uv to 0.13.3 (patched rustls) and OS packages; remove unused bootstrap
+  pip and gcc/libxml2/libxslt development packages. Validate the rebuilt image
   and record remaining upstream findings before handoff.
