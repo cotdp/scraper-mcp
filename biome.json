@@ -60,6 +60,7 @@
       ".ruff_cache",
       ".pytest_cache",
       ".mypy_cache",
+      ".impeccable",
       "htmlcov"
     ],
     "include": ["src/**/*.html", "src/**/*.css", "src/**/*.js", "src/**/*.json", "*.json"]

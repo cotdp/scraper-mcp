@@ -134,7 +134,7 @@ Utilities in `utils.py` use BeautifulSoup with lxml parser:
 
 ```bash
 docker build -t scraper-mcp:custom .
-docker run -p 8000:8000 scraper-mcp:custom
+docker run -p 127.0.0.1:8000:8000 scraper-mcp:custom
 ```
 
 ### With Docker Compose
