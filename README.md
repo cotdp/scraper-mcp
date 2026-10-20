@@ -11,7 +11,7 @@ The `latest` Docker image updates on version tags or a manual Docker publish run
 
 ```bash
 # Run with Docker (GitHub Container Registry)
-docker run -d -p 8000:8000 --name scraper-mcp ghcr.io/cotdp/scraper-mcp:latest
+docker run -d -p 127.0.0.1:8000:8000 --name scraper-mcp ghcr.io/cotdp/scraper-mcp:latest
 
 # Add to Claude Code
 claude mcp add --transport http scraper http://localhost:8000/mcp --scope user
@@ -26,6 +26,14 @@ Try it:
 **Endpoints:**
 - MCP: `http://localhost:8000/mcp`
 - Dashboard: `http://localhost:8000/`
+
+The MCP endpoint is for trusted clients and can scrape private network addresses.
+Keep it on loopback or behind an authenticated gateway. To enable the dashboard,
+inject `SCRAPER_ADMIN_TOKEN` into the container (for example, add
+`-e SCRAPER_ADMIN_TOKEN` when the value is already exported) and sign in with
+username `admin` and the token as the password. Administration is disabled without
+a token; `/healthz` remains public. See [Security](SECURITY.md) and the
+[0.5.0 migration notes](docs/releases/0.5.0.md) before upgrading.
 
 ## Features
 
@@ -52,6 +60,7 @@ Try it:
 - Real-time request statistics and cache metrics
 - Interactive API playground for testing tools
 - Runtime configuration without restarts
+- Token authentication and credential-safe configuration responses
 
 ![Dashboard](docs/1-dashboard.png)
 
@@ -151,16 +160,16 @@ Use the dashboard playground at `http://localhost:8000/` to test JavaScript rend
 
 ```bash
 # Using GitHub Container Registry (recommended)
-docker run -d -p 8000:8000 --name scraper-mcp ghcr.io/cotdp/scraper-mcp:latest
+docker run -d -p 127.0.0.1:8000:8000 --name scraper-mcp ghcr.io/cotdp/scraper-mcp:latest
 
 # With JavaScript rendering (requires more memory)
-docker run -d -p 8000:8000 --memory=1g --name scraper-mcp ghcr.io/cotdp/scraper-mcp:latest
+docker run -d -p 127.0.0.1:8000:8000 --memory=1g --name scraper-mcp ghcr.io/cotdp/scraper-mcp:latest
 
 # With Perplexity AI (direct API)
-docker run -d -p 8000:8000 -e PERPLEXITY_API_KEY=your_key ghcr.io/cotdp/scraper-mcp:latest
+docker run -d -p 127.0.0.1:8000:8000 -e PERPLEXITY_API_KEY=your_key ghcr.io/cotdp/scraper-mcp:latest
 
 # With Perplexity via OpenRouter
-docker run -d -p 8000:8000 -e OPENROUTER_API_KEY=your_key ghcr.io/cotdp/scraper-mcp:latest
+docker run -d -p 127.0.0.1:8000:8000 -e OPENROUTER_API_KEY=your_key ghcr.io/cotdp/scraper-mcp:latest
 ```
 
 ### Docker Compose
@@ -173,7 +182,7 @@ services:
   scraper-mcp:
     image: ghcr.io/cotdp/scraper-mcp:latest
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - cache:/app/cache
     environment:
@@ -215,7 +224,7 @@ docker-compose -f docker-compose.prod.yml up -d
 
 # Or restart a standalone container
 docker stop scraper-mcp && docker rm scraper-mcp
-docker run -d -p 8000:8000 --name scraper-mcp ghcr.io/cotdp/scraper-mcp:latest
+docker run -d -p 127.0.0.1:8000:8000 --name scraper-mcp ghcr.io/cotdp/scraper-mcp:latest
 ```
 
 Your cache data persists in the named volume across upgrades.
@@ -225,7 +234,7 @@ Your cache data persists in the named volume across upgrades.
 | Tag | Description |
 |-----|-------------|
 | `latest` | Latest stable release |
-| `0.4.0` | Specific version |
+| `0.5.0` | Specific version, after the release is published |
 
 ## Configuration
 

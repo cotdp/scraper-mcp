@@ -21,17 +21,17 @@ code over subsequent credential fixes.
 - [x] Start a clean branch from current remote `main` and record custody of local work.
 - [x] Resolve the dependency graph against current advisories, raise security floors,
       and document any advisory that cannot be eliminated.
-- [ ] Prevent proxy credential disclosure and unsafe configuration round-trips,
+- [x] Prevent proxy credential disclosure and unsafe configuration round-trips,
       enable TLS verification by default, and enforce an explicit admin access boundary.
 - [x] Eliminate unsafe pickle deserialization from persistent cache reads without
       deleting existing cache data.
-- [ ] Restore inexpensive mandatory lint, format, type, test, build, and dependency
+- [x] Restore inexpensive mandatory lint, format, type, test, build, and dependency
       audit checks; configure routine dependency maintenance and release validation.
-- [ ] Enable available GitHub security protections and protect `main` with the
+- [x] Enable available GitHub security protections and protect `main` with the
       validated checks. Record any API permission or platform limitation.
 - [x] Review the SearXNG proposal against release scope and either implement a
       bounded integration or record a concrete follow-up.
-- [ ] Prepare the next version, migration notes, release notes, and safe publish procedure.
+- [x] Prepare the next version, migration notes, release notes, and safe publish procedure.
 - [ ] Run full local validation, production-container smoke tests, and an independent
       review; resolve findings and verify hosted CI on the final commit.
 - [ ] Ship one clean, pushed PR and a session summary with remaining owner actions.
@@ -62,3 +62,27 @@ code over subsequent credential fixes.
   typed `search` results, timeouts and unavailable-sidecar behavior, query cache
   policy, configuration documentation, and a live search-to-scrape smoke test.
   The design remains in `docs/research/searxng-integration.md`.
+- Require admin authentication even on loopback: MCP scraping can otherwise
+  reach a local administration route. Browser Basic authentication and API
+  Bearer authentication share the injected token. No token means disabled
+  administration; MCP remains a trusted-client interface.
+- Independent review caught two additional release gaps: TLS policy was missing
+  from HTTP cache keys, and uv-only constraints did not protect wheel consumers.
+  A reproduced TLS-cache regression now passes; patched floors are included in
+  distribution metadata.
+- Local integrated validation: 387 tests passed with 79% coverage; Ruff,
+  strict mypy (41 source/script files), Biome, actionlint, package builds, and the
+  hashed all-extras dependency audit passed. No advisory exclusions were used.
+- Browser checks passed authenticated administration, masked configuration
+  round-trips, and TLS defaults. A reproduced navigation overflow at 390px is
+  fixed. A bounded live Perplexity Sonar request passed (8 total tokens).
+  Live OpenRouter verification remains unavailable without an injected key.
+- GitHub now has secret scanning, push protection, private vulnerability
+  reporting, and automated security updates enabled. Main requires a PR,
+  conversation resolution, and current `quality` / `Analyze (python)` checks from
+  GitHub Actions, including for administrators; force pushes and deletion are
+  disabled. Zero approving reviews permits the solo owner to merge.
+- Container scanning found outdated bootstrap tools outside the Python lockfile.
+  Update uv to 0.13.3 (patched rustls), pip to 26.2.1, and OS packages; remove
+  unused gcc/libxml2/libxslt development packages. Validate the rebuilt image
+  and record remaining upstream findings before handoff.
