@@ -1,6 +1,6 @@
 [project]
 name = "scraper-mcp"
-version = "0.4.0"
+version = "0.5.0"
 description = "MCP server for web scraping functionality"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -11,6 +11,15 @@ dependencies = [
     "markdownify>=0.12.0",
     "lxml>=6.1.0",
     "pydantic>=2.0.0",
+    # Runtime security floors also apply to wheel/sdist installs outside uv.
+    "anyio>=4.14.2",
+    "idna>=3.15",
+    "pygments>=2.20.0",
+    "python-dotenv>=1.2.2",
+    "python-multipart>=0.0.31",
+    "soupsieve>=2.9.0",
+    "starlette>=1.3.1",
+    "urllib3>=2.8.0",
 ]
 
 [project.optional-dependencies]
@@ -36,19 +45,6 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.uv]
-# Security floors for transitive packages in the locked application environment.
-constraint-dependencies = [
-    "anyio>=4.14.2",
-    "idna>=3.15",
-    "pygments>=2.20.0",
-    "python-dotenv>=1.2.2",
-    "python-multipart>=0.0.31",
-    "soupsieve>=2.9.0",
-    "starlette>=1.3.1",
-    "urllib3>=2.8.0",
-]
 
 [tool.ruff]
 line-length = 100
