@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Literal
 
@@ -145,7 +146,7 @@ mcp.custom_route("/", methods=["GET"])(dashboard_view)
 
 def run_server(
     transport: Transport = "streamable-http",
-    host: str = "0.0.0.0",
+    host: str = "127.0.0.1",
     port: int = 8000,
     enable_resources: bool = False,
     enable_prompts: bool = False,
@@ -154,7 +155,7 @@ def run_server(
 
     Args:
         transport: Transport type ('streamable-http' or 'sse')
-        host: Host to bind to (default: 0.0.0.0)
+        host: Host to bind to (default: 127.0.0.1)
         port: Port to bind to (default: 8000)
         enable_resources: Enable MCP resources (default: False, disabled to reduce context)
         enable_prompts: Enable MCP prompts (default: False, disabled to reduce context)
@@ -177,6 +178,12 @@ def run_server(
     # Configure host and port via settings
     mcp.settings.host = host
     mcp.settings.port = port
+
+    if transport != "stdio" and not os.getenv("SCRAPER_ADMIN_TOKEN"):
+        logging.getLogger(__name__).warning(
+            "Admin routes are disabled because SCRAPER_ADMIN_TOKEN is unset. "
+            "Set it to enable the dashboard and admin API; use HTTPS for remote access."
+        )
 
     # Run server with specified transport
     mcp.run(transport=transport)

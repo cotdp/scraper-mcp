@@ -154,7 +154,7 @@ async def scrape_extract_links(
     )
 
 
-async def cache_stats() -> dict[str, int | float]:
+async def cache_stats() -> dict[str, int | float | str]:
     """Get HTTP cache statistics.
 
     Returns:

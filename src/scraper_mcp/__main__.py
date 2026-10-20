@@ -14,7 +14,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python -m scraper_mcp                           # Default: streamable-http on 0.0.0.0:8000
+  python -m scraper_mcp                           # Default: streamable-http on 127.0.0.1:8000
   python -m scraper_mcp sse                       # Use SSE transport
   python -m scraper_mcp streamable-http 0.0.0.0 9000  # Custom port
   python -m scraper_mcp --enable-prompts          # Enable MCP prompts
@@ -32,8 +32,8 @@ Examples:
     parser.add_argument(
         "host",
         nargs="?",
-        default="0.0.0.0",
-        help="Host to bind to (default: 0.0.0.0)",
+        default="127.0.0.1",
+        help="Host to bind to (default: 127.0.0.1)",
     )
     parser.add_argument(
         "port",

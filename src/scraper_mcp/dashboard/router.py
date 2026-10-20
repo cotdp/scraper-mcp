@@ -5,10 +5,13 @@ from pathlib import Path
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
 
+from scraper_mcp.admin.security import require_admin
+
 # Setup template directory
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
+@require_admin
 async def dashboard(request: Request) -> HTMLResponse:
     """Serve the monitoring dashboard.
 

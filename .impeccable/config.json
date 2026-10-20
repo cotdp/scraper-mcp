@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          "src/scraper_mcp/dashboard/templates/dashboard.html"
+        ],
+        "createdAt": "2026-10-20T14:18:22.561Z",
+        "reason": "Agent: this font stack is unchanged from origin/main; preserve the existing admin dashboard identity during release hardening."
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "src/scraper_mcp/dashboard/templates/dashboard.html"
+        ],
+        "createdAt": "2026-10-20T14:19:58.515Z",
+        "reason": "Agent: browser-verified at 1280px and 390px. The three flagged final stat rows have border-bottom none/0px and sit inside cards with 16px padding; bordered rows have 10px bottom padding. The detector incorrectly retains the removed border."
+      }
+    ]
+  }
+}

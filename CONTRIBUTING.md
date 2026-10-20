@@ -179,6 +179,7 @@ pytest --no-cov
 import pytest
 from unittest.mock import Mock, patch
 
+
 @pytest.mark.asyncio
 async def test_feature_name(provider: RequestsProvider) -> None:
     """Test description."""

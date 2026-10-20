@@ -6,6 +6,7 @@ import json
 import os
 from typing import TYPE_CHECKING
 
+from scraper_mcp import __version__
 from scraper_mcp.admin.service import get_stats
 from scraper_mcp.metrics import get_metrics
 
@@ -13,8 +14,7 @@ if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
 
-# Server version - should match pyproject.toml
-SERVER_VERSION = "0.4.0"
+SERVER_VERSION = __version__
 
 
 def register_server_resources(mcp: FastMCP, *, perplexity_tools_available: bool) -> None:

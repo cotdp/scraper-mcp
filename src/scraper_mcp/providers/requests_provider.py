@@ -281,6 +281,7 @@ class RequestsProvider(ScraperProvider):
             cache_key = self.cache_manager.generate_cache_key(
                 url=original_url,
                 headers=headers,
+                verify_ssl=verify_ssl,
             )
 
             # Try to get from cache

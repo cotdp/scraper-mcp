@@ -1,3 +1,5 @@
 """Scraper MCP - MCP server for web scraping functionality."""
 
-__version__ = "0.1.0"
+from importlib.metadata import version as _distribution_version
+
+__version__ = _distribution_version("scraper-mcp")

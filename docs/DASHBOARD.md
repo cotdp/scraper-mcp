@@ -2,6 +2,11 @@
 
 The Scraper MCP dashboard provides real-time monitoring, testing, and configuration capabilities through a web interface accessible at `http://localhost:8000/`.
 
+Set `SCRAPER_ADMIN_TOKEN` in the server environment to enable it. The browser
+prompts for username `admin` and the token as password. Without a configured
+token the dashboard returns HTTP 503. Use HTTPS for remote access; see
+[administrative configuration](CONFIGURATION.md#administrative-access).
+
 ## Dashboard Tab
 
 ![Dashboard](1-dashboard.png)
@@ -24,7 +29,7 @@ The main dashboard displays four stat cards with live metrics:
 
 ### Cache Status
 - **Entries**: Number of cached responses
-- **Size**: Total cache size on disk
+- **Size**: Encoded cache keys and values; SQLite storage overhead is additional
 - **Hit Rate**: Percentage of requests served from cache
 - **Clear Cache**: Button to purge all cached data
 

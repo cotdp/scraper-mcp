@@ -1,196 +1,124 @@
-# CLAUDE.md
+# Repository Guide
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file describes the current Scraper MCP implementation and verification
+workflow. Follow the session's AGENTS instructions for authorization, Git, and
+handoff requirements. Preserve unrelated edits and never read or modify secrets.
 
-## Project Overview
+## Project and commands
 
-A Model Context Protocol (MCP) server for efficient web scraping. Built with Python using FastMCP, providing AI tools with standardized web scraping capabilities through four main tools: raw HTML scraping, markdown conversion, text extraction, and link extraction. All tools support both single URL and batch operations with intelligent retry logic.
+Scraper MCP is a Python 3.12+ application built with the MCP Python SDK's FastMCP
+1.x API, Pydantic v2, requests, BeautifulSoup/lxml, and markdownify. Dependencies
+are managed with uv; optional extras are `perplexity`, `playwright`, and `dev`.
 
-## Development Commands
-
-### Environment Setup
 ```bash
-# Install dependencies (uses uv package manager)
-uv pip install -e ".[dev]"
+uv sync --locked --all-extras
+uv run --no-sync python -m scraper_mcp
+uv run --no-sync ruff check .
+uv run --no-sync ruff format --check .
+uv run --no-sync mypy src/ scripts/
+bun install --frozen-lockfile
+bun run check
+uv build --no-sources
 ```
 
-### Running the Server
-```bash
-# Run locally with default settings
-python -m scraper_mcp
+Run tests with the credential/proxy isolation shown in [docs/TESTING.md](docs/TESTING.md).
+Focused pytest commands can append a file or `-k` filter and `--no-cov`. Do not
+install arbitrary new package versions to repair a lock mismatch; update metadata
+and the lock deliberately, then validate them together.
 
-# Run with specific transport and port
-python -m scraper_mcp streamable-http 0.0.0.0 8000
+The CLI accepts positional `transport`, `host`, and `port`. Defaults are
+`streamable-http`, `127.0.0.1`, and `8000`; the alternative transport is `sse`.
+There is no stdio CLI option. Resources/prompts are opt-in through
+`--enable-resources`, `--enable-prompts`, or their `ENABLE_*` environment settings.
 
-# Run with Docker
-docker-compose up -d
-docker-compose logs -f
-docker-compose down
-```
+## Code map
 
-### Testing
-```bash
-# Run all tests with coverage
-pytest
+- `server.py`: FastMCP instance, transport-security defaults, tool/custom-route
+  registration, and `run_server()`.
+- `__main__.py`: CLI argument parsing. `__init__.py` derives `__version__` from
+  installed package metadata, so install the project before importing it.
+- `tools/router.py`: registered MCP tool signatures and delegation to services.
+- `tools/service.py`: batch orchestration, semaphore limits, HTML transformations,
+  sparse response metadata, and request metrics.
+- `models/`: Pydantic response models and supported Perplexity models/providers.
+- `core/providers.py`: default requests provider and lazy Playwright selection.
+- `providers/requests_provider.py`: requests-backed fetches, retries, caching,
+  proxy handling, TLS verification, and credential redaction.
+- `providers/playwright_provider.py`: Chromium/browser-context pooling and
+  JavaScript rendering. Browser packages are optional outside the Docker image.
+- `services/perplexity_service.py`: direct Perplexity SDK and OpenRouter HTTP
+  backends, model allowlisting, and normalized responses/errors.
+- `utils.py`: BeautifulSoup/Soup Sieve selection, markdown/text conversion, link
+  resolution, and page metadata extraction.
+- `cache_manager.py`: public cache API, TTL policy, key generation, and statistics.
+- `cache_storage.py`: transactional SQLite storage with strict versioned JSON.
+- `admin/security.py`: token authentication and browser request protections.
+- `admin/router.py`, `admin/service.py`: administrative HTTP handlers and volatile
+  runtime configuration. Do not assume every reported setting changes behavior;
+  check its consumers before changing or documenting it.
+- `dashboard/`: authenticated HTML dashboard and template assets.
+- `resources/`, `prompts/`: optional MCP read resources and prompt templates.
+- `scripts/check_release.py`, `scripts/smoke_image.py`: publication guard and
+  offline production-container verification.
 
-# Run specific test file
-pytest tests/test_server.py
+## Tool contracts
 
-# Run specific test class
-pytest tests/test_server.py::TestScrapeUrlTool
+All scraping tools accept `urls: list[str]` and return a batch envelope, including
+for one URL. `scrape_url` returns Markdown, `scrape_url_html` raw HTML,
+`scrape_url_text` plain text, and `scrape_extract_links` link objects. Do not add
+examples using a singular `url` argument or a `scrape_url_markdown` tool.
 
-# Run specific test function
-pytest tests/test_server.py::TestScrapeUrlTool::test_scrape_url_success
+`BatchScrapeResponse` contains `total`, `successful`, `failed`, and `results`.
+Each result contains the requested `url`, `success`, and either a `data` response
+or an `error`. Link batches use the analogous model. A successful MCP call can
+still contain failed URL results. The tool layer limits batch concurrency to eight.
 
-# Run with verbose output
-pytest -v
+Selector filtering runs before tag stripping and conversion. Requests retries
+transient failures with exponential delays; details and exact tool arguments are
+in [docs/API.md](docs/API.md). Use the generated MCP schemas as the contract when
+changing tools, and keep tests/models/docs aligned.
 
-# Run without coverage report
-pytest --no-cov
-```
+Perplexity tools register at startup when a usable configured backend exists.
+`auto` prefers direct Perplexity with its SDK/key, otherwise OpenRouter. Only
+`sonar` is enabled initially; other models require explicit opt-in. Tests must not
+make paid requests or inherit local keys.
 
-### Code Quality
-```bash
-# Type checking
-mypy src/
+## Security and persistence
 
-# Linting
-ruff check .
+The CLI binds to loopback, and Compose publishes a loopback host port. Containers
+listen on `0.0.0.0:8000` internally. MCP DNS-rebinding protection is enabled; this
+is not client authentication. Restrict MCP to trusted clients or an authenticated
+gateway, as it can fetch network resources and use configured paid providers.
 
-# Auto-fix linting issues
-ruff check . --fix
+Dashboard and `/api/*` routes require `SCRAPER_ADMIN_TOKEN`, even from loopback.
+Without it, they return HTTP 503. Bearer auth and HTTP Basic (`admin`, token) are
+supported; `/healthz` remains public. Admin mutations require JSON and enforce
+browser-origin checks. Returned proxy URLs/API keys are masked; preserve masks
+on roundtrip and avoid leaking credentials through responses or logs. TLS
+certificate verification defaults to enabled.
 
-# Format code
-ruff format .
-```
+The cache writes `cache-v1.sqlite3` and supports TTL, LRU, statistics, and
+thread/process concurrency. Serialization admits JSON primitives and the explicit
+`ScrapeResult` schema only. Never load pickle, import arbitrary encoded types, or
+migrate legacy diskcache contents. Existing legacy files remain untouched. Cache
+size metrics count encoded keys/values, excluding SQLite overhead. Tests use
+temporary cache directories, not persisted deployment data.
 
-## Architecture
+## Testing and shipping
 
-### Provider Pattern
-The server uses an extensible provider architecture for different scraping backends:
+Tests use pytest, pytest-asyncio, pytest-mock, and provider/network mocks. Add
+focused regressions for meaningful behavioral or security boundaries. The cache
+suite includes hostile records and thread/process concurrency; admin tests cover
+both HTTP transports; release-guard tests use disposable Git histories.
 
-- **`ScraperProvider`** (`providers/base.py`): Abstract interface defining `scrape()` and `supports_url()` methods
-- **`RequestsProvider`** (`providers/requests_provider.py`): Default HTTP scraper using `requests` library with exponential backoff retry logic
-- **Future extensibility**: Easy to add Playwright, Selenium, or Scrapy providers for JavaScript-heavy sites or specialized scraping
+The quality workflow performs locked dependency installation, Ruff, mypy, pytest,
+strict dependency auditing, Bun/Biome checks, and wheel/sdist builds. CodeQL scans
+Python separately. PR/main CI does not build Docker images. Run the documented
+local offline image smoke before release preparation is considered validated.
 
-The `get_provider()` function in `server.py` routes URLs to appropriate providers. Currently defaults to `RequestsProvider` for all HTTP/HTTPS URLs.
-
-### Tool Architecture
-All four MCP tools (`scrape_url`, `scrape_url_markdown`, `scrape_url_text`, `scrape_extract_links`) follow a dual-mode pattern:
-
-1. **Single URL mode**: Returns `ScrapeResponse` or `LinksResponse` directly
-2. **Batch mode**: Accepts `list[str]` URLs, returns `BatchScrapeResponse` or `BatchLinksResponse` with individual results and success/failure counts
-
-Batch operations use `asyncio.Semaphore` (default concurrency: 5) to limit concurrent requests and `asyncio.gather()` for parallel execution.
-
-### HTML Processing Utilities
-All utilities in `utils.py` use BeautifulSoup with lxml parser:
-
-- **`html_to_markdown()`**: Converts HTML to markdown using `markdownify` with ATX heading style
-- **`html_to_text()`**: Extracts plain text with default stripping of script/style/meta/link/noscript tags
-- **`extract_links()`**: Extracts all `<a>` tags with URL resolution using `urllib.parse.urljoin()`
-- **`extract_metadata()`**: Extracts `<title>` and all `<meta>` tags (name/property attributes)
-- **`filter_html_by_selector()`**: Filters HTML using CSS selectors via BeautifulSoup's `.select()` method, returns tuple of (filtered_html, element_count)
-
-### CSS Selector Filtering
-Optional `css_selector` parameter added to all four tools for targeted content extraction:
-
-- **Purpose**: "What to KEEP" filtering (inclusive) - complementary to `strip_tags` (exclusive)
-- **Implementation**: Applied BEFORE any other processing (markdown/text conversion, link extraction)
-- **Selector Support**: Full CSS selector syntax via Soup Sieve (tags, classes, IDs, attributes, combinators, pseudo-classes)
-- **Processing Order**:
-  1. Scrape HTML from provider
-  2. Apply CSS selector filter (if provided)
-  3. Apply strip_tags (if provided)
-  4. Convert to markdown/text or extract links
-- **Metadata**: When selector provided, adds `css_selector_applied` and `elements_matched` to response metadata
-- **Batch Support**: Works in both single-URL and batch modes
-- **Empty Results**: Returns empty string with count=0 if no elements match (graceful degradation)
-
-### Retry Logic
-All scraping operations implement exponential backoff:
-
-- **Default**: 3 retries, 30s timeout, 1s initial delay
-- **Backoff schedule**: 1s, 2s, 4s (exponential: `retry_delay * 2^(attempt-1)`)
-- **Retryable errors**: `requests.Timeout`, `requests.ConnectionError`, `requests.HTTPError`
-- **Metadata tracking**: All responses include `attempts`, `retries`, and `elapsed_ms` fields
-
-### Pydantic Models
-Strong typing using Pydantic v2:
-
-- **`ScrapeResult`** (dataclass in `providers/base.py`): Provider return type
-- **`ScrapeResponse`** (Pydantic model): Single scrape tool response
-- **`LinksResponse`** (Pydantic model): Single link extraction response
-- **`ScrapeResultItem`/`LinkResultItem`**: Individual batch operation results with success flag and optional error
-- **`BatchScrapeResponse`/`BatchLinksResponse`**: Batch operation responses with totals and results array
-
-## Testing Approach
-
-Tests use pytest-asyncio with pytest-mock for mocking. Key patterns:
-
-- **Fixtures** (`tests/conftest.py`): Provide sample HTML with various features (links, metadata, scripts)
-- **Mocking pattern**: Mock `get_provider()` to return a provider with mocked `scrape()` method
-- **Batch test pattern**: Test both successful batch operations and partial failures
-- **Backward compatibility**: Ensure single URL mode still works after adding batch support
-
-When adding new tools:
-1. Create fixtures for test HTML in `conftest.py`
-2. Add test class following `Test<ToolName>Tool` naming pattern
-3. Test single URL, batch mode, error cases, and parameter variations
-4. Mock at the provider level, not the requests level
-
-## Common Development Tasks
-
-### Adding a New Scraping Tool
-1. Define Pydantic response model in `server.py`
-2. Add utility function to `utils.py` if needed
-3. Create `@mcp.tool()` decorated function with dual-mode support (single/batch)
-4. Add batch operation helper function following existing patterns
-5. Add comprehensive tests in `tests/test_server.py`
-
-### Adding a New Provider
-1. Create new file in `providers/` (e.g., `playwright_provider.py`)
-2. Subclass `ScraperProvider` and implement `scrape()` and `supports_url()`
-3. Update `get_provider()` in `server.py` to route specific URL patterns
-4. Add provider-specific tests in `tests/test_providers.py`
-5. Update `pyproject.toml` dependencies if needed
-
-### Modifying Retry Behavior
-Retry logic is centralized in `RequestsProvider.scrape()` at `providers/requests_provider.py:78-127`. Key parameters:
-- `max_retries`: Maximum attempts (default: 3)
-- `retry_delay`: Initial backoff delay (default: 1.0s)
-- Backoff calculation: `delay = self.retry_delay * (2 ** (attempt - 1))`
-
-To modify retry behavior, adjust the retry loop or add retry parameters to tool signatures.
-
-## Project Configuration
-
-- **Python version**: 3.12+ (uses modern type hints like `str | None`)
-- **Package manager**: `uv` for dependency management
-- **Build system**: Hatchling
-- **Line length**: 100 characters (ruff)
-- **Pytest config**: Async mode auto, coverage enabled by default, testpaths: `tests/`
-- **Mypy**: Strict mode enabled
-
-## Docker Configuration
-
-- **Base image**: Python 3.12-slim
-- **Default port**: 8000
-- **Transport**: streamable-http (configurable via env vars)
-- **Environment variables**: `TRANSPORT`, `HOST`, `PORT`
-- **Restart policy**: unless-stopped (docker-compose)
-
-## MCP Integration
-
-To connect from Claude Desktop, add to MCP settings:
-```json
-{
-  "mcpServers": {
-    "scraper": {
-      "url": "http://localhost:8000/mcp"
-    }
-  }
-}
-```
-
-The server uses FastMCP which automatically handles transport negotiation and tool registration.
+Follow [RELEASE.md](RELEASE.md): one reviewed PR, owner merge, matching package and
+lock versions, then a new tag on merged code. The publication workflow repeats
+quality checks and image smoke before pushing amd64/arm64 images to Docker Hub
+and GHCR. Manual publication is restricted to `main`; unmerged commits and
+mismatched tags fail the release guard. Never delete/reuse tags or move deployment
+aliases to perform rollback; deploy the recorded previous immutable digest.

@@ -198,6 +198,7 @@ src/scraper_mcp/
 ```python
 class SearchResult(BaseModel):
     """A single search result."""
+
     title: str
     url: str
     content: str  # snippet/description
@@ -209,8 +210,10 @@ class SearchResult(BaseModel):
     thumbnail: str | None = None
     published_date: str | None = None
 
+
 class SearchResponse(BaseModel):
     """Response from a search query."""
+
     query: str
     results: list[SearchResult]
     total_results: int
@@ -235,6 +238,7 @@ class SearchResponse(BaseModel):
 # In server.py
 if SearxngService.is_available():
     register_search_tools(mcp)
+
 
 # In tools/router.py
 def register_search_tools(mcp: FastMCP) -> None:

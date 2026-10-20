@@ -1,335 +1,199 @@
 # API Reference
 
-Complete documentation for all Scraper MCP tools.
+The default transport is Streamable HTTP at `http://127.0.0.1:8000/mcp`.
+The CLI also supports SSE. It does not expose a stdio transport option.
+Use MCP discovery (`tools/list`) for the running server's exact tool schemas.
 
-## Available Tools
+MCP clients must be trusted: the administrative token does not authenticate MCP
+requests. The dashboard and every `/api/*` route require `SCRAPER_ADMIN_TOKEN`;
+`/healthz` is public. See [Security](../SECURITY.md).
 
-### 1. `scrape_url`
+## Scraping tools
 
-Scrape raw HTML content from a URL.
+All four tools require `urls` as a **list of strings**, including for one URL.
+They always return a batch envelope. There is no `scrape_url_markdown` tool.
 
-**Parameters:**
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `urls` | string or list | Yes | - | Single URL or list of URLs (http:// or https://) |
-| `timeout` | integer | No | 30 | Request timeout in seconds |
-| `max_retries` | integer | No | 3 | Maximum retry attempts on failure |
-| `css_selector` | string | No | - | CSS selector to filter HTML elements |
+| Tool | Result content | Additional parameter |
+|------|----------------|----------------------|
+| `scrape_url` | Markdown | `strip_tags: list[str] \| null` |
+| `scrape_url_html` | Raw HTML | None |
+| `scrape_url_text` | Plain text | `strip_tags: list[str] \| null` |
+| `scrape_extract_links` | Link objects | None |
 
-**Returns:**
-- `url`: Final URL after redirects
-- `content`: Raw HTML content (filtered if css_selector provided)
-- `status_code`: HTTP status code
-- `content_type`: Content-Type header value
-- `metadata`: Object containing `headers`, `encoding`, `elapsed_ms`, `attempts`, `retries`, `css_selector_applied`, `elements_matched`
+The common parameters are:
 
----
+| Parameter | Type | Default | Meaning |
+|-----------|------|---------|---------|
+| `urls` | `list[str]` | Required | HTTP or HTTPS URLs |
+| `timeout` | Integer | `30` | Timeout for each request, in seconds |
+| `max_retries` | Integer | `3` | Retries after the initial attempt; `0` disables retries |
+| `css_selector` | String or null | `null` | Keep matching HTML elements before conversion |
+| `include_headers` | Boolean | `false` | Include HTTP headers in scrape metadata |
+| `render_js` | Boolean | `false` | Render with Playwright/Chromium before extraction |
 
-### 2. `scrape_url_markdown`
+`strip_tags` removes the named elements after selector filtering. Markdown applies
+no extra tag-removal list unless requested. Plain text removes `script`, `style`,
+`meta`, `link`, and `noscript` by default. Playwright requires its optional package
+and Chromium installation; the production image includes both.
 
-Scrape a URL and convert the content to markdown format. Best for LLM consumption.
+Calls process batches concurrently with a limit of eight at the tool layer.
+Playwright separately limits active browser contexts. Results retain input order.
 
-**Parameters:**
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `urls` | string or list | Yes | - | Single URL or list of URLs |
-| `timeout` | integer | No | 30 | Request timeout in seconds |
-| `max_retries` | integer | No | 3 | Maximum retry attempts |
-| `strip_tags` | array | No | - | HTML tags to strip (e.g., `['script', 'style']`) |
-| `css_selector` | string | No | - | CSS selector to filter HTML before conversion |
+### Scrape response
 
-**Returns:**
-- Same as `scrape_url` but with markdown-formatted content
-- `metadata.page_metadata`: Extracted page metadata (title, description, etc.)
-
----
-
-### 3. `scrape_url_text`
-
-Scrape a URL and extract plain text content.
-
-**Parameters:**
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `urls` | string or list | Yes | - | Single URL or list of URLs |
-| `timeout` | integer | No | 30 | Request timeout in seconds |
-| `max_retries` | integer | No | 3 | Maximum retry attempts |
-| `strip_tags` | array | No | script, style, meta, link, noscript | HTML tags to strip |
-| `css_selector` | string | No | - | CSS selector to filter HTML before extraction |
-
-**Returns:**
-- Same as `scrape_url` but with plain text content
-
----
-
-### 4. `scrape_extract_links`
-
-Scrape a URL and extract all links.
-
-**Parameters:**
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `urls` | string or list | Yes | - | Single URL or list of URLs |
-| `timeout` | integer | No | 30 | Request timeout in seconds |
-| `max_retries` | integer | No | 3 | Maximum retry attempts |
-| `css_selector` | string | No | - | CSS selector to scope link extraction |
-
-**Returns:**
-- `url`: The URL that was scraped
-- `links`: Array of link objects with `url`, `text`, and `title`
-- `count`: Total number of links found
-
----
-
-### 5. `perplexity`
-
-Search the web using Perplexity AI. Requires `PERPLEXITY_API_KEY` environment variable.
-
-**Parameters:**
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `messages` | array | Yes | - | Conversation messages with `role` and `content` |
-| `model` | string | No | sonar | Model name. Only enabled (opt-in) models are accepted — see note below |
-| `temperature` | number | No | 0.3 | Creativity 0-2 (lower = focused) |
-| `max_tokens` | integer | No | 4000 | Maximum response length |
-
-> **Model allowlist:** Only `sonar` is enabled by default. `sonar-pro`,
-> `sonar-reasoning`, `sonar-reasoning-pro`, and `sonar-deep-research` must be
-> enabled (opt-in) via `PERPLEXITY_ENABLED_MODELS` or the `perplexity_enabled_models`
-> runtime config. A disabled model returns an error without making an API call.
-> See [CONFIGURATION.md](CONFIGURATION.md#model-allowlist-opt-in).
-
-**Returns:**
-- `content`: AI-generated response with citation markers
-- `model`: Model used
-- `citations`: Array of source URLs
-- `usage`: Token usage statistics
-
----
-
-### 6. `perplexity_reason`
-
-Complex reasoning tasks using Perplexity's reasoning model (`sonar-reasoning-pro`).
-Requires `PERPLEXITY_API_KEY`.
-
-> **Disabled by default:** `sonar-reasoning-pro` is opt-in, so this tool returns a
-> "model not enabled" error until you enable it via `PERPLEXITY_ENABLED_MODELS` or
-> the `perplexity_enabled_models` runtime config.
-
-**Parameters:**
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `query` | string | Yes | - | The query or problem to reason about |
-| `temperature` | number | No | 0.3 | Creativity 0-2 |
-| `max_tokens` | integer | No | 4000 | Maximum response length |
-
-**Returns:**
-- Same as `perplexity` tool
-
----
-
-## CSS Selector Filtering
-
-All scraping tools support CSS selector filtering to extract specific elements before processing.
-
-### Supported Selectors
-
-The server uses BeautifulSoup4's `.select()` method (Soup Sieve), supporting:
-
-| Selector Type | Example | Description |
-|---------------|---------|-------------|
-| Tag | `meta`, `img`, `a` | Select by tag name |
-| Multiple | `img, video` | Comma-separated |
-| Class | `.article-content` | Select by class |
-| ID | `#main-content` | Select by ID |
-| Attribute | `a[href]`, `meta[property="og:image"]` | Select by attribute |
-| Descendant | `article p`, `div.content a` | Nested selectors |
-| Pseudo-class | `p:nth-of-type(3)`, `a:not([rel])` | Advanced filtering |
-
-### Examples
-
-```python
-# Extract only meta tags
-scrape_url("https://example.com", css_selector="meta")
-
-# Get article content as markdown
-scrape_url_markdown("https://blog.com/article", css_selector="article.main-content")
-
-# Extract text from specific section
-scrape_url_text("https://example.com", css_selector="#main-content")
-
-# Get only navigation links
-scrape_extract_links("https://example.com", css_selector="nav.primary")
-
-# Get Open Graph meta tags
-scrape_url("https://example.com", css_selector='meta[property^="og:"]')
-
-# Combine with strip_tags
-scrape_url_markdown(
-    "https://example.com",
-    css_selector="article",
-    strip_tags=["script", "style"]
-)
-```
-
-### How It Works
-
-1. **Scrape**: Fetch HTML from the URL
-2. **Filter**: Apply CSS selector to keep only matching elements
-3. **Process**: Convert to markdown/text or extract links
-4. **Return**: Include `elements_matched` count in metadata
-
----
-
-## Retry Behavior
-
-The scraper includes intelligent retry logic with exponential backoff.
-
-### Configuration
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `max_retries` | 3 | Maximum retry attempts |
-| `timeout` | 30s | Request timeout |
-| Retry delay | 1s initial | Exponential backoff |
-
-### Retry Schedule
-
-For default configuration (max_retries=3):
-
-1. **First attempt**: Immediate
-2. **Retry 1**: Wait 1 second
-3. **Retry 2**: Wait 2 seconds
-4. **Retry 3**: Wait 4 seconds
-
-Total maximum wait: ~7 seconds before final failure.
-
-### What Triggers Retries
-
-- Network timeouts
-- Connection failures
-- HTTP errors (4xx, 5xx status codes)
-
-### Response Metadata
-
-All responses include retry information:
+`scrape_url`, `scrape_url_html`, and `scrape_url_text` return this structure:
 
 ```json
 {
-  "attempts": 2,
-  "retries": 1,
-  "elapsed_ms": 234.5
+  "total": 1,
+  "successful": 1,
+  "failed": 0,
+  "results": [
+    {
+      "url": "https://example.com/",
+      "success": true,
+      "data": {
+        "content": "# Example Domain",
+        "status_code": 200,
+        "content_type": "text/html",
+        "metadata": {"elapsed_ms": 42.0}
+      },
+      "error": null
+    }
+  ]
 }
 ```
 
-### Customizing Retries
+Each item identifies the requested URL. On an individual failure, `success` is
+`false`, `data` is `null`, and `error` describes the failure. Check `failed` and
+individual results even when the MCP call itself succeeds. Invalid arguments or
+provider selection can also produce an MCP tool error.
 
-```python
-# Disable retries
-scrape_url("https://example.com", max_retries=0)
+Metadata is intentionally sparse: `attempts` appears when greater than one,
+`retries` when greater than zero, and cache/proxy/rendering flags when true.
+`include_headers=true` adds response headers to scrape metadata. Selector results
+include `css_selector_applied` and `elements_matched`; Markdown and text can include
+`page_metadata`. Optional fields may differ by provider.
 
-# More aggressive retries
-scrape_url("https://example.com", max_retries=5, timeout=60)
+### Link response
 
-# Quick fail
-scrape_url("https://example.com", max_retries=1, timeout=10)
+`scrape_extract_links` uses the same batch totals and per-item success/error fields.
+A successful item's `data` contains `links` and `count`:
+
+```json
+{
+  "links": [
+    {"url": "https://example.com/about", "text": "About", "title": ""}
+  ],
+  "count": 1
+}
 ```
 
----
+Relative URLs resolve against the scraped page. Links retain their scheme, so
+clients should validate schemes before navigation. The link response model does
+not expose scrape metadata, even though its tool accepts `include_headers`.
 
-## Batch Operations
+### Examples
 
-All tools support batch operations by passing a list of URLs:
+These are arguments to MCP `tools/call`, not REST endpoints:
 
-```python
-# Single URL
-scrape_url("https://example.com")
-
-# Batch operation
-scrape_url(["https://example.com", "https://example.org", "https://example.net"])
+```json
+{"name": "scrape_url", "arguments": {"urls": ["https://example.com/article"], "css_selector": "article", "strip_tags": ["script", "style"]}}
 ```
 
-Batch operations:
-- Execute concurrently (default: 5 parallel requests)
-- Return results for all URLs with individual success/failure status
-- Include totals: `total`, `successful`, `failed`
-
----
-
-## Resources
-
-MCP resources provide read-only data access via URI-based addressing. Access resources via `resources/list` and `resources/read`.
-
-### Cache Resources
-
-| URI | Description |
-|-----|-------------|
-| `cache://stats` | Cache statistics (hit rate, size, entries) |
-| `cache://requests` | List of recent request IDs with metadata |
-| `cache://request/{id}` | Full cached result by request ID |
-| `cache://request/{id}/content` | Just the content from a cached request |
-| `cache://request/{id}/metadata` | Just the metadata from a cached request |
-
-### Configuration Resources
-
-| URI | Description |
-|-----|-------------|
-| `config://current` | Current runtime configuration (API key masked) |
-| `config://defaults` | Default configuration values |
-| `config://scraping` | Scraping settings (timeout, retries, concurrency) |
-| `config://cache` | Cache settings (TTLs, directory) |
-| `config://perplexity` | Perplexity settings (enabled/available models, key status) |
-
-### Server Resources
-
-| URI | Description |
-|-----|-------------|
-| `server://info` | Server info (version, uptime, capabilities) |
-| `server://metrics` | Request metrics (counts, success rates) |
-| `server://tools` | List of available tools with descriptions |
-
----
-
-## Prompts
-
-MCP prompts provide reusable, parameterized workflow templates. Access prompts via `prompts/list` and `prompts/get`.
-
-### Content Analysis Prompts
-
-| Prompt | Parameters | Purpose |
-|--------|------------|---------|
-| `analyze_webpage` | `url`, `focus` | Structured webpage analysis |
-| `summarize_content` | `url`, `length`, `style` | Generate content summaries |
-| `extract_data` | `url`, `data_type`, `selector` | Extract specific data types |
-| `compare_pages` | `urls` | Compare multiple pages |
-
-### SEO/Technical Prompts
-
-| Prompt | Parameters | Purpose |
-|--------|------------|---------|
-| `seo_audit` | `url` | Comprehensive SEO check |
-| `link_audit` | `url` | Analyze internal/external links |
-| `metadata_check` | `url` | Review meta tags and OG data |
-| `accessibility_check` | `url` | Basic accessibility analysis |
-
-### Research Prompts
-
-| Prompt | Parameters | Purpose |
-|--------|------------|---------|
-| `research_topic` | `topic`, `depth` | Multi-source research |
-| `fact_check` | `claim`, `sources` | Verify claims |
-| `competitive_analysis` | `urls` | Compare competitors |
-| `news_roundup` | `topic`, `timeframe` | Gather recent news |
-
-### Disabling Resources/Prompts
-
-To reduce context overhead:
-
-```bash
-# Environment variables
-DISABLE_RESOURCES=true
-DISABLE_PROMPTS=true
-
-# CLI flags
-python -m scraper_mcp --disable-resources --disable-prompts
+```json
+{"name": "scrape_url_html", "arguments": {"urls": ["https://example.com/"], "css_selector": "meta[property^='og:']"}}
 ```
+
+```json
+{"name": "scrape_url_text", "arguments": {"urls": ["https://example.com/app"], "render_js": true, "css_selector": "#main-content"}}
+```
+
+```json
+{"name": "scrape_extract_links", "arguments": {"urls": ["https://example.com/", "https://example.org/"], "css_selector": "nav a"}}
+```
+
+Selectors use BeautifulSoup/Soup Sieve: tags, `.class`, `#id`, attribute selectors,
+descendants, comma-separated alternatives, and supported pseudo-classes. Filtering
+keeps matched elements before tag stripping and conversion; no matches produce
+empty content or links.
+
+### Retries and TLS
+
+The requests provider verifies certificates by default. It retries timeouts,
+connection failures, and transient HTTP statuses `408`, `425`, `429`, `500`, `502`,
+`503`, and `504`. The default three retries wait 1, 2, then 4 seconds, in addition
+to network time. Permanent HTTP errors such as `404` return without retries.
+Playwright has its own browser retry behavior.
+
+## Perplexity and OpenRouter
+
+`perplexity` and `perplexity_reason` register at startup only when a usable backend
+is configured. Direct Perplexity needs its optional SDK and `PERPLEXITY_API_KEY`;
+OpenRouter uses `OPENROUTER_API_KEY`. `PERPLEXITY_PROVIDER` selects `auto`,
+`perplexity`, or `openrouter`; `auto` prefers a usable direct Perplexity backend.
+Restart after adding the first backend so the tools register.
+
+| Tool | Required parameter | Optional parameters |
+|------|--------------------|---------------------|
+| `perplexity` | `messages: list[dict[str, str]]`, with `role` and `content` | `model="sonar"`, `temperature=null`, `max_tokens=null` |
+| `perplexity_reason` | `query: str` | `temperature=null`, `max_tokens=null` |
+
+Null temperature/token values use service environment defaults: `0.3` and `4000`
+unless configured otherwise. The reasoning model defaults to `sonar-reasoning-pro`
+and can be configured with `PERPLEXITY_REASONING_MODEL`.
+
+Only `sonar` is enabled initially. Opt into other supported models with
+`PERPLEXITY_ENABLED_MODELS` or `perplexity_enabled_models` in runtime config.
+The model set is `sonar`, `sonar-pro`, `sonar-reasoning`, `sonar-reasoning-pro`, and
+`sonar-deep-research`. Disabled models fail before making a paid request. The
+reasoning tool therefore requires an enabled reasoning model.
+
+Responses contain `content`, `model`, `citations`, `usage`, and `metadata`.
+Usage contains available token counts. Inspect `metadata.error` for service
+failures. See [Configuration](CONFIGURATION.md) for backend and model settings.
+
+## Administrative HTTP routes
+
+| Route | Purpose |
+|-------|---------|
+| `GET /healthz` | Public container health check |
+| `GET /` | Authenticated dashboard |
+| `GET /api/stats` | Authenticated metrics and cache statistics |
+| `GET /api/config` | Runtime values, defaults, and supported model/provider information |
+| `POST /api/config` | Apply a JSON body shaped `{"config": {"verify_ssl": true}}` |
+| `POST /api/cache/clear` | Clear the current JSON cache and reset counters |
+| `GET /api/requests/{request_id}/details` | Request details and available cached content |
+
+Use `Authorization: Bearer <token>` or HTTP Basic username `admin` with the token
+as password. Without a configured token, administrative routes return `503`;
+missing/incorrect credentials return `401`. Mutation requests require
+`Content-Type: application/json`. Config bodies are limited to 64 KiB. Browser
+origins are checked, and authenticated responses use `Cache-Control: no-store`.
+
+API keys and proxy URLs are masked in returned config. Omit unchanged secrets or
+send their mask back to preserve them; an empty string clears the runtime value.
+Updates are in memory and reset on restart. See [Configuration](CONFIGURATION.md)
+for environment fallbacks and settings that are only descriptive at runtime.
+
+## Optional MCP capabilities
+
+Resources and prompts are disabled by default. Enable them with
+`--enable-resources` / `--enable-prompts`, or `ENABLE_RESOURCES=true` /
+`ENABLE_PROMPTS=true`. There are no `--disable-*` CLI flags.
+
+Resources include `cache://stats`, `cache://requests`,
+`cache://request/{request_id}` and its `/content` and `/metadata` variants;
+`config://current`, `config://defaults`, `config://scraping`, `config://cache`,
+`config://perplexity`; and `server://info`, `server://metrics`, `server://tools`.
+They expose server-wide information to trusted MCP clients.
+
+Prompts include webpage analysis, summarization, extraction, page comparison,
+SEO/link/metadata/accessibility audits, topic research, fact checking, competitive
+analysis, and news roundups. Use `prompts/list` for exact names and argument schemas;
+`prompts/get` returns a workflow template, not executed research.
+
+`ENABLE_CACHE_TOOLS=true` additionally registers `cache_stats`,
+`cache_clear_expired`, and `cache_clear_all`. These tools are accessible through MCP
+and do not inherit HTTP admin-token authentication. Enable them only for clients
+allowed to inspect or clear the shared cache.
