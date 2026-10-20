@@ -9,7 +9,7 @@ dependencies = [
     "requests>=2.33.0",
     "beautifulsoup4>=4.12.0",
     "markdownify>=0.12.0",
-    "lxml>=6.1.0",
+    "lxml>=6.1.3",
     "pydantic>=2.0.0",
     # Runtime security floors also apply to wheel/sdist installs outside uv.
     "anyio>=4.14.2",

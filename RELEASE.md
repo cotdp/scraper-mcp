@@ -1,7 +1,8 @@
 # Release Guide
 
 Release preparation happens on one feature branch and PR. The owner reviews and
-merges it; agents must not merge it, push to `main`, or tag unmerged work.
+merges it, or explicitly authorizes the release operator to merge it. Never push
+directly to `main` or tag unmerged work.
 The next candidate is [0.5.0](docs/releases/0.5.0.md).
 
 ## Prepare and validate

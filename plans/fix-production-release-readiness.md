@@ -7,8 +7,9 @@ Base: `be6e8e39d07b67e8be3b4986ee3fbfd4aa323b38`
 
 Prepare the next production release through one PR. Fix the known dependency,
 credential, transport, cache, CI, and release-process gaps before considering new
-features. Never merge automatically, push to `main`, publish an unmerged release,
-read or modify `.env*` or `secrets/**`, or alter the existing deployment.
+features. The owner subsequently explicitly authorized merge, production
+publication, deployment, and agent-browser validation. Never push to `main`,
+publish an unmerged release, or read or modify `.env*` or `secrets/**`.
 
 The original checkout remains intact at
 `/home/mcutler/workspaces/carrotly/scraper-mcp`. Its historical work is preserved
@@ -37,9 +38,12 @@ code over subsequent credential fixes.
 - [x] Ship one clean, pushed PR and a session summary with remaining owner actions.
 - [x] Triage the final design-hook findings against the incumbent UI and persist
       only scoped, evidence-backed exceptions.
-- [?] Clear production publication (blocked: 25 unique critical/high upstream OS
-      advisories have no available fixes in the scanned Debian packages; owner
-      security review and merge remain required).
+- [x] Assess the unfixed upstream advisories against vendor guidance and the
+      running image; record the owner's subsequent merge/deployment directive.
+- [ ] Merge the checked PR and publish version 0.5.0 from merged code.
+- [ ] Verify both registries and deploy by digest, preserving the old container,
+      cache volume, trusted-network bindings, and runtime configuration.
+- [ ] Validate the live dashboard and MCP service with agent-browser and record evidence.
 - [?] Verify live OpenRouter account behavior (blocked: no injected OpenRouter key).
 
 ## Decisions and evidence
@@ -51,8 +55,8 @@ code over subsequent credential fixes.
   stateless HTTP. Retain those protections through dependency upgrades.
 - Keep expensive multi-architecture image publication restricted to release tags
   or a manual dispatch from merged `main`.
-- Production publication follows owner merge. This session validates artifacts
-  without updating deployed services or the production `latest` image.
+- Production publication follows a checked merge. Initial preparation stopped
+  before deployment; the owner's subsequent directive authorizes the release.
 - The upgraded graph retains MCP 1.x (`>=1.30,<2`) and enforces advisory minimums.
   The hashed all-extras export passes `pip-audit` with no known vulnerabilities
   and no vulnerability exclusions.
@@ -109,3 +113,9 @@ code over subsequent credential fixes.
   and the dashboard's `overused-font=inter` exception in shared hook config,
   keeping generated hook caches ignored. The full detector then returned no
   findings; no dashboard code or visual identity changed in this follow-up.
+- The subsequent deployment assessment compares 12 critical / 157 high findings
+  in the running image with 1 critical / 67 high in the candidate. Debian
+  classifies CVE-2026-6653 as minor/no-dsa. The latest stable lxml is already
+  locked at 6.1.3; its bundled libxml2 remains subject to separate advisories.
+  Record these limits and retain all scan findings. Raise the distribution's
+  lxml floor to 6.1.3 for its parameter-entity fix.
