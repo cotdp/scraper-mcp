@@ -35,6 +35,8 @@ code over subsequent credential fixes.
 - [x] Run full local validation, production-container smoke tests, and an independent
       review; resolve findings and verify hosted CI on the final commit.
 - [x] Ship one clean, pushed PR and a session summary with remaining owner actions.
+- [x] Triage the final design-hook findings against the incumbent UI and persist
+      only scoped, evidence-backed exceptions.
 - [?] Clear production publication (blocked: 25 unique critical/high upstream OS
       advisories have no available fixes in the scanned Debian packages; owner
       security review and merge remain required).
@@ -100,3 +102,10 @@ code over subsequent credential fixes.
 - Hosted `quality`, `Analyze (python)`, and CodeQL checks passed at implementation
   commit `0d6c5a2`. The final documentation handoff also runs these checks; the PR
   records the current result. PR: https://github.com/cotdp/scraper-mcp/pull/6.
+- Follow-up design-hook review found no spacing defect: at 1280px and 390px,
+  the three flagged final statistic rows have no bottom border, their cards
+  retain 16px padding, and bordered rows have 10px bottom padding. Preserve the
+  unchanged font stack. Record a dashboard-scoped `cramped-padding` exception
+  and the dashboard's `overused-font=inter` exception in shared hook config,
+  keeping generated hook caches ignored. The full detector then returned no
+  findings; no dashboard code or visual identity changed in this follow-up.

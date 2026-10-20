@@ -71,4 +71,5 @@ Thumbs.db
 node_modules/
 package-lock.json
 .playwright-mcp/
-.impeccable/
+.impeccable/*
+!.impeccable/config.json
