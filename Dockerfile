@@ -1,5 +1,5 @@
 # Use Python 3.12 slim image as base
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 # Build-time proxy arguments (for package installation)
 ARG HTTP_PROXY
